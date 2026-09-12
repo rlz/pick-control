@@ -213,7 +213,7 @@ function App() {
             <header className="topbar">
                 <div className="brand">
                     <span className="logo">◒</span>
-                    <span>rithme</span>
+                    <span>TaktControl</span>
                 </div>
                 <h1 className="exercise-summary">
                     {signature} <span>·</span> {measures} measures

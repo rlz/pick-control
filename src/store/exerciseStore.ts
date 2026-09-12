@@ -2,7 +2,8 @@ import { proxy, subscribe } from 'valtio'
 import { generateExercise } from '../domain/exercise'
 import type { ExerciseNote, TimeSignature } from '../types'
 
-const STORAGE_KEY = 'rithme.exercise.v1'
+const STORAGE_KEY = 'taktcontrol.exercise.v1'
+const LEGACY_STORAGE_KEY = 'rithme.exercise.v1'
 
 type StoredExercise = {
     measures: number
@@ -35,7 +36,11 @@ function isStoredExercise(value: unknown): value is StoredExercise {
 function loadExercise(): StoredExercise {
     if (typeof window === 'undefined') return defaults()
     try {
-        const saved = JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? 'null')
+        const saved = JSON.parse(
+            window.localStorage.getItem(STORAGE_KEY) ??
+                window.localStorage.getItem(LEGACY_STORAGE_KEY) ??
+                'null',
+        )
         return isStoredExercise(saved) ? saved : defaults()
     } catch {
         return defaults()

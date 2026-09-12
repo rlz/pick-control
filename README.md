@@ -1,6 +1,6 @@
-# Rithme
+# TaktControl
 
-Rithme is a browser-based rhythm trainer designed for guitar practice. It generates short rhythmic exercises, provides a count-in and metronome, listens for playing through the microphone, and shows the detected attacks against the written rhythm.
+TaktControl is a browser-based rhythm trainer designed for guitar practice. It generates short rhythmic exercises, provides a count-in and metronome, listens for playing through the microphone, and shows the detected attacks against the written rhythm.
 
 The interface is styled with Tailwind CSS and the score is engraved with VexFlow.
 
@@ -35,3 +35,13 @@ npm run format
 ## Notes
 
 The microphone detector looks for attack transients, not pitch. For the clearest results, use headphones for the metronome and play in a relatively quiet room.
+
+## Publish to GitHub Pages
+
+The repository includes a GitHub Actions deployment workflow and the custom-domain file for `takt.maslennikovdm.ru`. After pushing the repository to GitHub:
+
+1. In **Settings → Pages**, set **Source** to **GitHub Actions**.
+2. In the DNS zone for `maslennikovdm.ru`, create a `CNAME` record: host `takt`, value `<your-github-username>.github.io`.
+3. Once the first deployment completes, enable **Enforce HTTPS** in **Settings → Pages**. GitHub may take some time to provision the certificate.
+
+Every push to `main` then publishes the current build to the custom domain.

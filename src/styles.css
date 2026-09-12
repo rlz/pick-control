@@ -5,15 +5,15 @@
     --font-sans: 'DM Sans', sans-serif;
     --font-mono: 'DM Mono', monospace;
     --font-display: 'Fraunces', serif;
-    --color-rithme-ink: #0d1312;
-    --color-rithme-panel: #17211f;
-    --color-rithme-line: #2a3834;
-    --color-rithme-gold: #f3bb56;
-    --color-rithme-mint: #78c7b2;
+    --color-takt-ink: #0d1312;
+    --color-takt-panel: #17211f;
+    --color-takt-line: #2a3834;
+    --color-takt-gold: #f3bb56;
+    --color-takt-mint: #78c7b2;
 }
 
 :root {
-    @apply font-sans text-[#e7ece8] bg-rithme-ink;
+    @apply font-sans text-[#e7ece8] bg-takt-ink;
     font-family: 'DM Sans', sans-serif;
     color: #e7ece8;
     background: #0d1312;
@@ -23,7 +23,7 @@
     box-sizing: border-box;
 }
 body {
-    @apply m-0 overflow-hidden bg-rithme-ink;
+    @apply m-0 overflow-hidden bg-takt-ink;
     margin: 0;
     overflow: hidden;
     background: #0d1312;

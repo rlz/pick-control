@@ -10,8 +10,8 @@ export default defineConfig({
         VitePWA({
             registerType: 'autoUpdate',
             manifest: {
-                name: 'Rithme — rhythm practice',
-                short_name: 'Rithme',
+                name: 'TaktControl — rhythm practice',
+                short_name: 'TaktControl',
                 description: 'A rhythm trainer for guitarists.',
                 theme_color: '#101717',
                 background_color: '#101717',
