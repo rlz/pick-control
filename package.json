@@ -1,0 +1,43 @@
+{
+    "name": "rithme",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "dev": "vite",
+        "build": "tsc --noEmit && vite build",
+        "preview": "vite preview",
+        "lint": "eslint .",
+        "lint:fix": "eslint . --fix",
+        "format": "prettier --write .",
+        "format:check": "prettier --check ."
+    },
+    "dependencies": {
+        "@fortawesome/fontawesome-svg-core": "^7.3.1",
+        "@fortawesome/free-solid-svg-icons": "^7.3.1",
+        "@fortawesome/react-fontawesome": "^3.5.0",
+        "@vitejs/plugin-react": "latest",
+        "react": "latest",
+        "react-dom": "latest",
+        "soundfont-player": "^0.12.0",
+        "typescript": "latest",
+        "valtio": "^2.3.2",
+        "vexflow": "^5.0.0",
+        "vite": "latest",
+        "vite-plugin-pwa": "latest"
+    },
+    "devDependencies": {
+        "@eslint/js": "^10.0.1",
+        "@tailwindcss/vite": "^4.3.3",
+        "@types/node": "latest",
+        "@types/react": "latest",
+        "@types/react-dom": "latest",
+        "eslint": "^10.10.0",
+        "eslint-config-prettier": "^10.1.8",
+        "eslint-plugin-react-hooks": "^7.1.1",
+        "eslint-plugin-react-refresh": "^0.5.6",
+        "prettier": "^3.9.6",
+        "tailwindcss": "^4.3.3",
+        "typescript-eslint": "^8.70.0"
+    }
+}
