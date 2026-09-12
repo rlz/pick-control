@@ -32,11 +32,13 @@ export function TimingDetail({
             )
 
     return (
-        <section className="detail">
-            <div className="detail-controls">
-                <p className="eyebrow">{String(measure + 1).padStart(2, '0')}</p>
+        <section className="flex h-full w-full min-w-0 items-center gap-3">
+            <div className="flex items-center gap-2">
+                <p className="m-0 font-mono text-[10px] font-medium text-indigo-300">
+                    {String(measure + 1).padStart(2, '0')}
+                </p>
                 <button
-                    className="detail-preview"
+                    className="grid size-10 place-items-center rounded-lg border border-slate-700 bg-slate-800 font-mono text-[10px] text-slate-200 transition hover:border-indigo-400 hover:text-indigo-200"
                     onClick={onPreview}
                     aria-label={isPreviewing ? 'Stop measure preview' : 'Play measure'}
                     title={isPreviewing ? 'Stop measure preview' : 'Play measure'}
@@ -44,7 +46,7 @@ export function TimingDetail({
                     <FontAwesomeIcon icon={isPreviewing ? faStop : faPlay} />
                 </button>
             </div>
-            <div className="timeline">
+            <div className="timeline min-w-28 flex-1 sm:min-w-35">
                 <div className="axis">
                     {Array.from({ length: beats + 1 }, (_, index) => (
                         <span key={index} style={{ left: `${(index / beats) * 100}%` }}>

@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faGear, faPlay, faRotateRight, faStop, faXmark } from '@fortawesome/free-solid-svg-icons'
+import {
+    faGear,
+    faPlay,
+    faRotateRight,
+    faStop,
+    faVolumeHigh,
+    faXmark,
+} from '@fortawesome/free-solid-svg-icons'
 import { useSnapshot } from 'valtio'
 import { Metronome, listenForOnsets, playRhythmPattern } from './audio'
 import { Measure } from './components/Measure'
@@ -8,6 +15,8 @@ import { TimingDetail } from './components/TimingDetail'
 import { generateExercise, signatures } from './domain/exercise'
 import { exerciseStore } from './store/exerciseStore'
 import type { ExerciseNote, PlayerHit, TimeSignature } from './types'
+
+const currentTime = () => performance.now()
 
 function App() {
     const storedExercise = useSnapshot(exerciseStore)
@@ -167,10 +176,7 @@ function App() {
             alert('Could not load the guitar preview sound.')
             return
         }
-        previewTimer.current = window.setTimeout(
-            stopPreview,
-            80 + measureCount * measureMs + 170,
-        )
+        previewTimer.current = window.setTimeout(stopPreview, 80 + measureCount * measureMs + 170)
     }
     async function startExercise() {
         reset()
@@ -190,7 +196,7 @@ function App() {
                 const time = performance.now() - startedAt.current
                 if (time < totalMs) setHits((previous) => [...previous, { time, strength }])
             })
-            startedAt.current = performance.now()
+            startedAt.current = currentTime()
             setState('playing')
             showProgress(startedAt.current, 0, measures)
             metronome.current.start(beatMs, () => undefined)
@@ -210,17 +216,19 @@ function App() {
     const measureHits = (i: number) =>
         hits.filter((hit) => hit.time >= i * measureMs && hit.time < (i + 1) * measureMs)
     return (
-        <main className="app-shell">
-            <header className="topbar">
-                <div className="brand">
-                    <span className="logo">◒</span>
+        <main className="grid h-dvh grid-rows-[3.5rem_minmax(0,1fr)_5.5rem] overflow-hidden bg-slate-950 text-slate-100 md:grid-rows-[4rem_minmax(0,1fr)_6rem]">
+            <header className="relative flex items-center border-b border-slate-800 bg-slate-900/90 px-5 backdrop-blur md:px-7">
+                <div className="flex items-center gap-2 text-lg font-bold tracking-tight text-indigo-300">
+                    <span className="grid size-8 place-items-center rounded-lg bg-indigo-400/15 text-xl">
+                        ◒
+                    </span>
                     <span>TaktControl</span>
                 </div>
-                <h1 className="exercise-summary">
-                    {signature} <span>·</span> {measures} measures
+                <h1 className="absolute left-1/2 m-0 hidden -translate-x-1/2 rounded-full border border-slate-700 bg-slate-800 px-3 py-1 text-sm font-medium text-slate-300 sm:block">
+                    {signature} <span className="px-1 text-slate-500">·</span> {measures} measures
                 </h1>
                 <button
-                    className="settings-toggle"
+                    className="settings-toggle ml-auto"
                     type="button"
                     onClick={() => setSettingsOpen(true)}
                     aria-label="Open exercise settings"
@@ -230,13 +238,13 @@ function App() {
                     <FontAwesomeIcon icon={faGear} />
                 </button>
             </header>
-            <div className="app-body">
+            <div className="app-body grid min-h-0 overflow-hidden lg:grid-cols-[18rem_minmax(0,1fr)]">
                 <aside
-                    className={`control-panel ${settingsOpen ? 'settings-open' : ''}`}
+                    className={`control-panel ${settingsOpen ? 'settings-open' : ''} flex min-h-0 flex-col gap-6 overflow-y-auto border-r border-slate-800 bg-slate-900 p-5 md:p-6`}
                     id="exercise-settings"
                     aria-label="Exercise settings"
                 >
-                    <div className="settings-panel-heading">
+                    <div className="settings-panel-heading items-center justify-between text-base font-bold text-indigo-300">
                         <span>Exercise settings</span>
                         <button
                             className="settings-close"
@@ -247,7 +255,7 @@ function App() {
                             <FontAwesomeIcon icon={faXmark} />
                         </button>
                     </div>
-                    <div className="setting-stack">
+                    <div className="grid gap-5">
                         <label>
                             Measures
                             <select
@@ -316,17 +324,10 @@ function App() {
                     <button className="secondary" onClick={regenerate}>
                         Generate
                     </button>
-                    <button
-                        className="secondary"
-                        onClick={() => previewPattern()}
-                        disabled={state === 'count-in' || state === 'playing'}
-                    >
-                        {previewing === 'all' ? 'Stop' : 'Play'}
-                    </button>
                 </aside>
-                <section className="workspace">
-                    <div className="notation-scroll" ref={notationScroll}>
-                        <div className="notation-strip">
+                <section className="grid min-h-0 min-w-0 overflow-hidden bg-slate-950">
+                    <div className="notation-scroll p-5 md:p-7" ref={notationScroll}>
+                        <div className="flex min-w-0 flex-wrap content-start pb-36">
                             {Array.from({ length: measures }, (_, index) => (
                                 <Measure
                                     key={index}
@@ -356,8 +357,8 @@ function App() {
                     </div>
                 </section>
             </div>
-            <footer className="transport">
-                <div className="transport-info">
+            <footer className="relative z-10 flex items-center justify-between gap-4 border-t border-slate-800 bg-slate-900 px-4 md:px-7">
+                <div className="flex min-w-0 flex-1 items-center gap-3">
                     {selectedMeasure !== null ? (
                         <TimingDetail
                             measure={selectedMeasure}
@@ -371,40 +372,62 @@ function App() {
                         />
                     ) : null}
                 </div>
-                <div className="actions">
-                    <button
-                        className="icon-button"
-                        onClick={reset}
-                        disabled={state === 'ready'}
-                        aria-label="Repeat exercise"
-                        title="Repeat exercise"
-                    >
-                        <FontAwesomeIcon icon={faRotateRight} />
-                    </button>
-                    <button
-                        className="icon-button primary"
-                        onClick={
-                            state === 'count-in' || state === 'playing' ? reset : startExercise
-                        }
-                        aria-label={
-                            state === 'count-in' || state === 'playing'
-                                ? 'Stop exercise'
-                                : state === 'finished'
-                                  ? 'Play exercise again'
-                                  : 'Start exercise'
-                        }
-                        title={
-                            state === 'count-in' || state === 'playing'
-                                ? 'Stop exercise'
-                                : state === 'finished'
-                                  ? 'Play exercise again'
-                                  : 'Start exercise'
-                        }
-                    >
-                        <FontAwesomeIcon
-                            icon={state === 'count-in' || state === 'playing' ? faStop : faPlay}
-                        />
-                    </button>
+                <div className="flex items-end gap-3 border-l border-slate-700 pl-4">
+                    <div className="flex flex-col items-center gap-1">
+                        <button
+                            className="icon-button"
+                            onClick={() => previewPattern()}
+                            disabled={state === 'count-in' || state === 'playing'}
+                            aria-label={
+                                previewing === 'all' ? 'Stop full preview' : 'Preview exercise'
+                            }
+                            title={previewing === 'all' ? 'Stop preview' : 'Preview exercise'}
+                        >
+                            <FontAwesomeIcon icon={previewing === 'all' ? faStop : faVolumeHigh} />
+                        </button>
+                        <span className="text-[10px] font-medium text-slate-400">Listen</span>
+                    </div>
+                    <div className="flex flex-col items-center gap-1">
+                        <button
+                            className="icon-button"
+                            onClick={reset}
+                            disabled={state === 'ready'}
+                            aria-label="Repeat exercise"
+                            title="Repeat exercise"
+                        >
+                            <FontAwesomeIcon icon={faRotateRight} />
+                        </button>
+                        <span className="text-[10px] font-medium text-slate-400">Restart</span>
+                    </div>
+                    <div className="flex flex-col items-center gap-1">
+                        <button
+                            className="icon-button primary"
+                            onClick={
+                                state === 'count-in' || state === 'playing' ? reset : startExercise
+                            }
+                            aria-label={
+                                state === 'count-in' || state === 'playing'
+                                    ? 'Stop exercise'
+                                    : state === 'finished'
+                                      ? 'Play exercise again'
+                                      : 'Start exercise'
+                            }
+                            title={
+                                state === 'count-in' || state === 'playing'
+                                    ? 'Stop exercise'
+                                    : state === 'finished'
+                                      ? 'Play exercise again'
+                                      : 'Start exercise'
+                            }
+                        >
+                            <FontAwesomeIcon
+                                icon={state === 'count-in' || state === 'playing' ? faStop : faPlay}
+                            />
+                        </button>
+                        <span className="text-[10px] font-semibold text-indigo-300">
+                            {state === 'count-in' || state === 'playing' ? 'Stop' : 'Start'}
+                        </span>
+                    </div>
                 </div>
             </footer>
         </main>

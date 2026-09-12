@@ -1,5 +1,16 @@
 import { useEffect, useRef } from 'react'
-import { Barline, Beam, Dot, Formatter, Renderer, Stave, StaveNote, Stem, TextBracket, Voice } from 'vexflow'
+import {
+    Barline,
+    Beam,
+    Dot,
+    Formatter,
+    Renderer,
+    Stave,
+    StaveNote,
+    Stem,
+    TextBracket,
+    Voice,
+} from 'vexflow'
 import type { ExerciseNote, TimeSignature } from '../types'
 
 type Props = {
@@ -7,10 +18,18 @@ type Props = {
     notes: ExerciseNote[]
     signature: TimeSignature
     width: number
+    scale: number
     activeSlot: number
 }
 
-export function EngravedMeasure({ measureNumber, notes, signature, width, activeSlot }: Props) {
+export function EngravedMeasure({
+    measureNumber,
+    notes,
+    signature,
+    width,
+    scale,
+    activeSlot,
+}: Props) {
     const element = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
@@ -25,7 +44,7 @@ export function EngravedMeasure({ measureNumber, notes, signature, width, active
             .setMeasure(measureNumber)
             .setBegBarType(Barline.type.SINGLE)
             .setEndBarType(Barline.type.SINGLE)
-        stave.setStyle({ fillStyle: '#8c9d94', strokeStyle: '#b5c0b7' })
+        stave.setStyle({ fillStyle: '#94a3b8', strokeStyle: '#cbd5e1' })
         stave.setContext(context).drawWithStyle()
 
         const tickables = notes.map((note) => {
@@ -37,8 +56,8 @@ export function EngravedMeasure({ measureNumber, notes, signature, width, active
                 activeSlot >= note.position &&
                 activeSlot < note.position + note.duration
             staveNote.setStyle({
-                fillStyle: isActive ? '#78c7b2' : '#f3bb56',
-                strokeStyle: isActive ? '#78c7b2' : '#f3bb56',
+                fillStyle: isActive ? '#22d3ee' : '#818cf8',
+                strokeStyle: isActive ? '#22d3ee' : '#818cf8',
             })
             if (notation.dotted) Dot.buildAndAttach([staveNote], { all: true })
             return staveNote
@@ -49,7 +68,7 @@ export function EngravedMeasure({ measureNumber, notes, signature, width, active
         const voice = new Voice({ numBeats: beats, beatValue }).setStrict(false)
         voice.addTickables(tickables)
         const beams = Beam.generateBeams(tickables, { stemDirection: Stem.DOWN })
-        beams.forEach((beam) => beam.setStyle({ fillStyle: '#f3bb56', strokeStyle: '#f3bb56' }))
+        beams.forEach((beam) => beam.setStyle({ fillStyle: '#818cf8', strokeStyle: '#818cf8' }))
         new Formatter().joinVoices([voice]).format([voice], width - 18)
         voice.draw(context, stave)
         beams.forEach((beam) => beam.setContext(context).drawWithStyle())
@@ -63,12 +82,25 @@ export function EngravedMeasure({ measureNumber, notes, signature, width, active
             bracket.setContext(context)
             bracket.setFont({ family: 'DM Mono', size: '8px', weight: 500, style: 'normal' })
             bracket.setDashed(false)
-            bracket.renderOptions.color = '#d98e48'
+            bracket.renderOptions.color = '#94a3b8'
             bracket.renderOptions.showBracket = false
             bracket.applyStyle(context)
             bracket.draw()
         })
-    }, [activeSlot, measureNumber, notes, signature, width])
+        const svg = element.current.querySelector('svg')
+        if (svg) {
+            const scaledWidth = width * scale
+            const scaledHeight = height * scale
+            element.current.style.position = 'relative'
+            svg.setAttribute('viewBox', `0 0 ${width} ${height}`)
+            svg.setAttribute('preserveAspectRatio', 'xMinYMid meet')
+            svg.style.position = 'absolute'
+            svg.style.width = `${scaledWidth}px`
+            svg.style.height = `${scaledHeight}px`
+            svg.style.left = '0'
+            svg.style.top = `${(height - scaledHeight) / 2}px`
+        }
+    }, [activeSlot, measureNumber, notes, scale, signature, width])
 
     return <div className="vexflow-measure" ref={element} aria-hidden="true" />
 }
@@ -82,7 +114,11 @@ function palmMuteGroups(notes: ExerciseNote[]) {
                 previous.endIndex = index
                 previous.endPosition += note.duration
             } else {
-                groups.push({ startIndex: index, endIndex: index, endPosition: note.position + note.duration })
+                groups.push({
+                    startIndex: index,
+                    endIndex: index,
+                    endPosition: note.position + note.duration,
+                })
             }
             return groups
         },
