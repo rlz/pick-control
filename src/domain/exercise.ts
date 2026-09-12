@@ -1,4 +1,4 @@
-import type { ExerciseNote, TimeSignature } from '../types'
+import type { ExerciseNote, PickStroke, TimeSignature } from '../types'
 
 export type SignatureSpec = { beats: number; unit: number; slots: number }
 export type GenerationOptions = {
@@ -42,6 +42,7 @@ export function generateExercise(
         const events = createMeasure(measure, spec.beats, beatSlots, signature, options, motif)
         const mutedRange = options.palmMutes ? choosePalmMuteRange(events, beatSlots) : null
 
+        let nextStroke: PickStroke = 'down'
         events.forEach((event) => {
             const palmMuted =
                 !event.isRest &&
@@ -56,7 +57,9 @@ export function generateExercise(
                 isRest: event.isRest,
                 palmMuted,
                 isTriplet: event.isTriplet,
+                stroke: event.isRest ? undefined : nextStroke,
             })
+            if (!event.isRest) nextStroke = nextStroke === 'down' ? 'up' : 'down'
         })
     }
 

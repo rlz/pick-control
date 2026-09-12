@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import {
     Barline,
+    Annotation,
     Beam,
     Dot,
     Formatter,
@@ -61,6 +62,11 @@ export function EngravedMeasure({
                 strokeStyle: isActive ? '#22d3ee' : '#818cf8',
             })
             if (notation.dotted) Dot.buildAndAttach([staveNote], { all: true })
+            if (note.stroke) {
+                const stroke = new Annotation(note.stroke === 'down' ? '↓' : '↑')
+                stroke.setVerticalJustification(Annotation.VerticalJustify.TOP)
+                staveNote.addModifier(stroke, 0)
+            }
             return staveNote
         })
         if (!tickables.length) return

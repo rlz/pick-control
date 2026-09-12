@@ -411,6 +411,15 @@ button:disabled {
     color: #64748b;
     background: #0f172a;
 }
+.rhythm-cell.stroke.selected {
+    border-color: #fbbf24;
+    color: #fef3c7;
+    background: #d9770630;
+}
+.rhythm-cell:disabled {
+    cursor: not-allowed;
+    opacity: 0.35;
+}
 .measure-editor-actions {
     display: flex;
     align-items: center;

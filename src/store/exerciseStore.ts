@@ -1,7 +1,7 @@
 import { proxy, subscribe } from 'valtio'
 import { defaultGenerationOptions, generateExercise } from '../domain/exercise'
 import type { GenerationOptions } from '../domain/exercise'
-import type { ExerciseNote, TimeSignature } from '../types'
+import type { ExerciseNote, PickStroke, TimeSignature } from '../types'
 
 const STORAGE_KEY = 'taktcontrol.exercise.v1'
 const LEGACY_STORAGE_KEY = 'rithme.exercise.v1'
@@ -45,10 +45,24 @@ function loadExercise(): StoredExercise {
                 window.localStorage.getItem(LEGACY_STORAGE_KEY) ??
                 'null',
         )
-        return isStoredExercise(saved) ? saved : defaults()
+        return isStoredExercise(saved) ? withStrokes(saved) : defaults()
     } catch {
         return defaults()
     }
+}
+
+/** Adds pick directions to exercises saved before strokes were introduced. */
+function withStrokes(stored: StoredExercise): StoredExercise {
+    const nextStrokeByMeasure = new Map<number, PickStroke>()
+    const exercise = [...stored.exercise]
+        .sort((left, right) => left.measure - right.measure || left.position - right.position)
+        .map((note) => {
+            if (note.isRest) return note
+            const nextStroke = nextStrokeByMeasure.get(note.measure) ?? 'down'
+            nextStrokeByMeasure.set(note.measure, nextStroke === 'down' ? 'up' : 'down')
+            return note.stroke ? note : { ...note, stroke: nextStroke }
+        })
+    return { ...stored, exercise }
 }
 
 export const exerciseStore = proxy<StoredExercise>(loadExercise())
@@ -60,6 +74,14 @@ export function setGenerationOptions(options: GenerationOptions) {
         options,
         exerciseStore.signature,
     )
+}
+
+export function regenerateExercise(
+    measures: number,
+    options: GenerationOptions,
+    signature: TimeSignature,
+) {
+    exerciseStore.exercise = generateExercise(measures, options, signature)
 }
 
 export function replaceMeasureNotes(measure: number, notes: ExerciseNote[]) {

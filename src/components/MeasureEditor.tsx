@@ -1,14 +1,16 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faPlay, faStop, faXmark } from '@fortawesome/free-solid-svg-icons'
-import type { TimeSignature } from '../types'
+import type { PickStroke, TimeSignature } from '../types'
 import type { StepKind } from '../domain/measureSteps'
 
 type Props = {
     measure: number
     signature: TimeSignature
     steps: StepKind[]
+    strokes: (PickStroke | undefined)[]
     isPreviewing: boolean
     onChange: (step: number, kind: StepKind) => void
+    onStrokeChange: (step: number, stroke: PickStroke) => void
     onPreview: () => void
     onSave: () => void
     onClose: () => void
@@ -27,8 +29,10 @@ export function MeasureEditor({
     measure,
     signature,
     steps,
+    strokes,
     isPreviewing,
     onChange,
+    onStrokeChange,
     onPreview,
     onSave,
     onClose,
@@ -101,6 +105,38 @@ export function MeasureEditor({
                                             aria-label={`Set step ${step + 1} to ${labels[kind]}`}
                                             aria-pressed={selected}
                                             title={`Set step ${step + 1} to ${labels[kind]}`}
+                                        >
+                                            {selected ? <span aria-hidden="true">●</span> : null}
+                                        </button>
+                                    )
+                                })}
+                            </div>
+                        </div>
+                    ))}
+                    {(['down', 'up'] as PickStroke[]).map((stroke) => (
+                        <div className="editor-state-row" key={stroke}>
+                            <span className="editor-row-label">{stroke === 'down' ? 'Down ↓' : 'Up ↑'}</span>
+                            <div
+                                className="editor-cells"
+                                style={{
+                                    gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))`,
+                                }}
+                            >
+                                {steps.map((kind, step) => {
+                                    const selected = strokes[step] === stroke
+                                    const playable = kind !== 'rest' && kind !== 'continue'
+                                    return (
+                                        <button
+                                            className={`rhythm-cell stroke ${selected ? 'selected' : ''} ${
+                                                step % beatSlots === 0 ? 'beat-start' : ''
+                                            }`}
+                                            disabled={!playable}
+                                            key={step}
+                                            type="button"
+                                            onClick={() => onStrokeChange(step, stroke)}
+                                            aria-label={`Set step ${step + 1} to ${stroke} stroke`}
+                                            aria-pressed={selected}
+                                            title={`Set step ${step + 1} to ${stroke} stroke`}
                                         >
                                             {selected ? <span aria-hidden="true">●</span> : null}
                                         </button>

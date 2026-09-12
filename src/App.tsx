@@ -12,13 +12,18 @@ import { useSnapshot } from 'valtio'
 import { Metronome, listenForOnsets, playRhythmPattern } from './audio'
 import { Measure } from './components/Measure'
 import { MeasureEditor } from './components/MeasureEditor'
-import { notesToSteps, stepsToNotes } from './domain/measureSteps'
+import { notesToSteps, notesToStrokes, stepsToNotes } from './domain/measureSteps'
 import type { StepKind } from './domain/measureSteps'
 import { TimingDetail } from './components/TimingDetail'
 import { generateExercise, signatures } from './domain/exercise'
 import type { GenerationOptions } from './domain/exercise'
-import { exerciseStore, replaceMeasureNotes, setGenerationOptions } from './store/exerciseStore'
-import type { ExerciseNote, PlayerHit, TimeSignature } from './types'
+import {
+    exerciseStore,
+    regenerateExercise,
+    replaceMeasureNotes,
+    setGenerationOptions,
+} from './store/exerciseStore'
+import type { ExerciseNote, PickStroke, PlayerHit, TimeSignature } from './types'
 
 const currentTime = () => performance.now()
 
@@ -35,6 +40,7 @@ function App() {
     const [settingsOpen, setSettingsOpen] = useState(false)
     const [editorMeasure, setEditorMeasure] = useState<number | null>(null)
     const [editorSteps, setEditorSteps] = useState<StepKind[]>([])
+    const [editorStrokes, setEditorStrokes] = useState<(PickStroke | undefined)[]>([])
     const cleanup = useRef<null | (() => void)>(null)
     const metronome = useRef(new Metronome())
     const startedAt = useRef(0)
@@ -82,10 +88,8 @@ function App() {
         })
     }, [activeMeasure, previewing, state])
     function regenerate() {
-        if (state !== 'ready' && state !== 'finished') return
-        exerciseStore.exercise = generateExercise(measures, generationOptions, signature)
-        setHits([])
-        setState('ready')
+        reset()
+        regenerateExercise(measures, generationOptions, signature)
         setSelectedMeasure(null)
     }
     function updateExerciseSettings(nextMeasures: number, nextSignature: TimeSignature) {
@@ -119,13 +123,17 @@ function App() {
     function openMeasureEditor() {
         if (selectedMeasure === null || state === 'count-in' || state === 'playing') return
         stopPreview()
-        setEditorSteps(
-            notesToSteps(
-                exercise.filter((note) => note.measure === selectedMeasure),
-                spec.slots,
-            ),
-        )
+        const measureNotes = exercise.filter((note) => note.measure === selectedMeasure)
+        setEditorSteps(notesToSteps(measureNotes, spec.slots))
+        setEditorStrokes(notesToStrokes(measureNotes, spec.slots))
         setEditorMeasure(selectedMeasure)
+    }
+    function setEditorStroke(step: number, stroke: PickStroke) {
+        setEditorStrokes((previous) => {
+            const next = [...previous]
+            next[step] = stroke
+            return next
+        })
     }
     function setEditorStep(step: number, kind: StepKind) {
         setEditorSteps((previous) => {
@@ -136,7 +144,7 @@ function App() {
     }
     function saveMeasureEditor() {
         if (editorMeasure === null) return
-        const replacement = stepsToNotes(editorSteps, editorMeasure)
+        const replacement = stepsToNotes(editorSteps, editorMeasure, editorStrokes)
         replaceMeasureNotes(editorMeasure, replacement)
         setHits([])
         setEditorMeasure(null)
@@ -472,11 +480,16 @@ function App() {
                     measure={editorMeasure}
                     signature={signature}
                     steps={editorSteps}
+                    strokes={editorStrokes}
                     isPreviewing={previewing === editorMeasure}
                     onChange={setEditorStep}
                     onPreview={() =>
-                        previewPattern(editorMeasure, stepsToNotes(editorSteps, editorMeasure))
+                        previewPattern(
+                            editorMeasure,
+                            stepsToNotes(editorSteps, editorMeasure, editorStrokes),
+                        )
                     }
+                    onStrokeChange={setEditorStroke}
                     onSave={saveMeasureEditor}
                     onClose={() => {
                         stopPreview()

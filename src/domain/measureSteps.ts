@@ -1,6 +1,16 @@
-import type { ExerciseNote } from '../types'
+import type { ExerciseNote, PickStroke } from '../types'
 
 export type StepKind = 'note' | 'mute' | 'triplet' | 'continue' | 'rest'
+
+export function notesToStrokes(notes: ExerciseNote[], slots: number): (PickStroke | undefined)[] {
+    const strokes: (PickStroke | undefined)[] = Array.from({ length: slots })
+    notes.forEach((note) => {
+        if (Math.abs(note.position - Math.round(note.position)) > 0.01) return
+        const position = Math.round(note.position)
+        if (position >= 0 && position < slots && !note.isRest) strokes[position] = note.stroke
+    })
+    return strokes
+}
 
 export function notesToSteps(notes: ExerciseNote[], slots: number): StepKind[] {
     const steps: StepKind[] = Array.from({ length: slots }, () => 'rest')
@@ -49,9 +59,21 @@ export function notesToSteps(notes: ExerciseNote[], slots: number): StepKind[] {
     return steps
 }
 
-export function stepsToNotes(steps: StepKind[], measure: number): ExerciseNote[] {
+export function stepsToNotes(
+    steps: StepKind[],
+    measure: number,
+    strokes: (PickStroke | undefined)[] = [],
+): ExerciseNote[] {
     const notes: ExerciseNote[] = []
     let lastNote: ExerciseNote | undefined
+    let nextStroke: PickStroke = 'down'
+
+    const strokeFor = (position: number) => {
+        const selected = strokes[Math.round(position)]
+        const stroke = selected ?? nextStroke
+        nextStroke = stroke === 'down' ? 'up' : 'down'
+        return stroke
+    }
 
     for (let position = 0; position < steps.length;) {
         const kind = steps[position]
@@ -72,6 +94,7 @@ export function stepsToNotes(steps: StepKind[], measure: number): ExerciseNote[]
                     position: tripletPosition,
                     duration,
                     isTriplet: true,
+                    stroke: strokeFor(tripletPosition),
                 }
                 notes.push(note)
                 lastNote = note
@@ -87,6 +110,7 @@ export function stepsToNotes(steps: StepKind[], measure: number): ExerciseNote[]
             duration: 1,
             isRest: kind === 'rest',
             palmMuted: kind === 'mute',
+            stroke: kind === 'rest' ? undefined : strokeFor(position),
         }
         notes.push(note)
         lastNote = note
