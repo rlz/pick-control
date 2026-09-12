@@ -1,5 +1,6 @@
 import { proxy, subscribe } from 'valtio'
-import { generateExercise } from '../domain/exercise'
+import { defaultGenerationOptions, generateExercise } from '../domain/exercise'
+import type { GenerationOptions } from '../domain/exercise'
 import type { ExerciseNote, TimeSignature } from '../types'
 
 const STORAGE_KEY = 'taktcontrol.exercise.v1'
@@ -7,7 +8,7 @@ const LEGACY_STORAGE_KEY = 'rithme.exercise.v1'
 
 type StoredExercise = {
     measures: number
-    difficulty: number
+    generationOptions: GenerationOptions
     signature: TimeSignature
     bpm: number
     exercise: ExerciseNote[]
@@ -15,10 +16,10 @@ type StoredExercise = {
 
 const defaults = (): StoredExercise => ({
     measures: 4,
-    difficulty: 2,
+    generationOptions: { ...defaultGenerationOptions },
     signature: '4/4',
     bpm: 92,
-    exercise: generateExercise(4, 2, '4/4'),
+    exercise: generateExercise(4, defaultGenerationOptions, '4/4'),
 })
 
 function isStoredExercise(value: unknown): value is StoredExercise {
@@ -26,8 +27,11 @@ function isStoredExercise(value: unknown): value is StoredExercise {
     const candidate = value as Partial<StoredExercise>
     return (
         typeof candidate.measures === 'number' &&
-        typeof candidate.difficulty === 'number' &&
-        (candidate.signature === '4/4' || candidate.signature === '3/4' || candidate.signature === '6/8') &&
+        typeof candidate.generationOptions === 'object' &&
+        candidate.generationOptions !== null &&
+        (candidate.signature === '4/4' ||
+            candidate.signature === '3/4' ||
+            candidate.signature === '6/8') &&
         typeof candidate.bpm === 'number' &&
         Array.isArray(candidate.exercise)
     )
@@ -48,6 +52,15 @@ function loadExercise(): StoredExercise {
 }
 
 export const exerciseStore = proxy<StoredExercise>(loadExercise())
+
+export function setGenerationOptions(options: GenerationOptions) {
+    exerciseStore.generationOptions = options
+    exerciseStore.exercise = generateExercise(
+        exerciseStore.measures,
+        options,
+        exerciseStore.signature,
+    )
+}
 
 subscribe(exerciseStore, () => {
     try {

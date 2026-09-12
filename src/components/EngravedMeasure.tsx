@@ -69,14 +69,30 @@ export function EngravedMeasure({
         voice.addTickables(tickables)
         const beams = Beam.generateBeams(tickables, { stemDirection: Stem.DOWN })
         beams.forEach((beam) => beam.setStyle({ fillStyle: '#818cf8', strokeStyle: '#818cf8' }))
+        const tripletGroups = groupTriplets(notes, tickables)
         new Formatter().joinVoices([voice]).format([voice], width - 18)
         voice.draw(context, stave)
         beams.forEach((beam) => beam.setContext(context).drawWithStyle())
+        tripletGroups.forEach((group) => {
+            const bracket = new TextBracket({
+                start: group[0],
+                stop: group[2],
+                text: '3',
+                position: TextBracket.Position.TOP,
+            })
+            bracket.setContext(context)
+            bracket.setFont({ family: 'DM Mono', size: '8px', weight: 500, style: 'normal' })
+            bracket.setDashed(false)
+            bracket.renderOptions.color = '#94a3b8'
+            bracket.renderOptions.showBracket = true
+            bracket.applyStyle(context)
+            bracket.draw()
+        })
         palmMuteGroups(notes).forEach(({ startIndex, endIndex }) => {
             const bracket = new TextBracket({
                 start: tickables[startIndex],
                 stop: tickables[endIndex],
-                text: 'P.M.',
+                text: 'pm',
                 position: TextBracket.Position.TOP,
             })
             bracket.setContext(context)
@@ -103,6 +119,20 @@ export function EngravedMeasure({
     }, [activeSlot, measureNumber, notes, scale, signature, width])
 
     return <div className="vexflow-measure" ref={element} aria-hidden="true" />
+}
+
+function groupTriplets(notes: ExerciseNote[], tickables: StaveNote[]) {
+    const groups: StaveNote[][] = []
+    for (let index = 0; index < notes.length;) {
+        const noteGroup = notes.slice(index, index + 3)
+        if (noteGroup.length === 3 && noteGroup.every((note) => note.isTriplet)) {
+            groups.push(tickables.slice(index, index + 3))
+            index += 3
+        } else {
+            index++
+        }
+    }
+    return groups
 }
 
 function palmMuteGroups(notes: ExerciseNote[]) {

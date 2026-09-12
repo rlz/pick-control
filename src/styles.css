@@ -45,6 +45,36 @@ button:disabled {
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
+.generation-options {
+    display: grid;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+.generation-options legend {
+    margin-bottom: 0.75rem;
+    color: #94a3b8;
+    font: 500 10px var(--font-mono);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+.control-panel .generation-option {
+    display: flex;
+    grid-template-columns: none;
+    align-items: center;
+    gap: 0.625rem;
+    color: #cbd5e1;
+    font: 500 0.8125rem var(--font-sans);
+    letter-spacing: 0;
+    text-transform: none;
+}
+.generation-option input {
+    width: 1rem;
+    height: 1rem;
+    margin: 0;
+    accent-color: #818cf8;
+}
 .control-panel select {
     width: 100%;
     appearance: none;

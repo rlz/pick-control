@@ -7,5 +7,6 @@ export type ExerciseNote = {
     duration: number
     isRest?: boolean
     palmMuted?: boolean
+    isTriplet?: boolean
 }
 export type PlayerHit = { time: number; strength: number; result?: 'hit' | 'extra' }

@@ -13,14 +13,15 @@ import { Metronome, listenForOnsets, playRhythmPattern } from './audio'
 import { Measure } from './components/Measure'
 import { TimingDetail } from './components/TimingDetail'
 import { generateExercise, signatures } from './domain/exercise'
-import { exerciseStore } from './store/exerciseStore'
+import type { GenerationOptions } from './domain/exercise'
+import { exerciseStore, setGenerationOptions } from './store/exerciseStore'
 import type { ExerciseNote, PlayerHit, TimeSignature } from './types'
 
 const currentTime = () => performance.now()
 
 function App() {
     const storedExercise = useSnapshot(exerciseStore)
-    const { measures, difficulty, signature, bpm } = storedExercise
+    const { measures, generationOptions, signature, bpm } = storedExercise
     const exercise: ExerciseNote[] = storedExercise.exercise.map((note) => ({ ...note }))
     const [hits, setHits] = useState<PlayerHit[]>([])
     const [state, setState] = useState<'ready' | 'count-in' | 'playing' | 'finished'>('ready')
@@ -77,21 +78,24 @@ function App() {
     }, [activeMeasure, previewing, state])
     function regenerate() {
         if (state !== 'ready' && state !== 'finished') return
-        exerciseStore.exercise = generateExercise(measures, difficulty, signature)
+        exerciseStore.exercise = generateExercise(measures, generationOptions, signature)
         setHits([])
         setState('ready')
         setSelectedMeasure(null)
     }
-    function updateExerciseSettings(
-        nextMeasures: number,
-        nextDifficulty: number,
-        nextSignature: TimeSignature,
-    ) {
+    function updateExerciseSettings(nextMeasures: number, nextSignature: TimeSignature) {
         if (state === 'count-in' || state === 'playing') return
         exerciseStore.measures = nextMeasures
-        exerciseStore.difficulty = nextDifficulty
         exerciseStore.signature = nextSignature
-        exerciseStore.exercise = generateExercise(nextMeasures, nextDifficulty, nextSignature)
+        exerciseStore.exercise = generateExercise(nextMeasures, generationOptions, nextSignature)
+        setHits([])
+        setSelectedMeasure(null)
+        setState('ready')
+    }
+    function updateGenerationOption(option: keyof GenerationOptions, enabled: boolean) {
+        if (state === 'count-in' || state === 'playing') return
+        const nextOptions = { ...generationOptions, [option]: enabled }
+        setGenerationOptions(nextOptions)
         setHits([])
         setSelectedMeasure(null)
         setState('ready')
@@ -261,11 +265,7 @@ function App() {
                             <select
                                 value={measures}
                                 onChange={(e) =>
-                                    updateExerciseSettings(
-                                        Number(e.target.value),
-                                        difficulty,
-                                        signature,
-                                    )
+                                    updateExerciseSettings(Number(e.target.value), signature)
                                 }
                             >
                                 {[2, 3, 4, 6, 8, 12, 16, 24, 32].map((n) => (
@@ -273,23 +273,29 @@ function App() {
                                 ))}
                             </select>
                         </label>
-                        <label>
-                            Difficulty
-                            <select
-                                value={difficulty}
-                                onChange={(e) =>
-                                    updateExerciseSettings(
-                                        measures,
-                                        Number(e.target.value),
-                                        signature,
-                                    )
-                                }
-                            >
-                                <option value="1">Easy</option>
-                                <option value="2">Medium</option>
-                                <option value="3">Hard</option>
-                            </select>
-                        </label>
+                        <fieldset className="generation-options">
+                            <legend>Allowed elements</legend>
+                            {(
+                                [
+                                    ['rests', 'Rests'],
+                                    ['eighths', 'Eighth notes'],
+                                    ['sixteenths', 'Sixteenth notes'],
+                                    ['palmMutes', 'Palm mute'],
+                                    ['triplets', 'Triplets'],
+                                ] as [keyof GenerationOptions, string][]
+                            ).map(([option, label]) => (
+                                <label className="generation-option" key={option}>
+                                    <input
+                                        type="checkbox"
+                                        checked={generationOptions[option]}
+                                        onChange={(event) =>
+                                            updateGenerationOption(option, event.target.checked)
+                                        }
+                                    />
+                                    <span>{label}</span>
+                                </label>
+                            ))}
+                        </fieldset>
                         <label>
                             Time signature
                             <select
@@ -297,7 +303,6 @@ function App() {
                                 onChange={(e) =>
                                     updateExerciseSettings(
                                         measures,
-                                        difficulty,
                                         e.target.value as TimeSignature,
                                     )
                                 }

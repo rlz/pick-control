@@ -1,9 +1,17 @@
 import type { ExerciseNote, TimeSignature } from '../types'
 
 export type SignatureSpec = { beats: number; unit: number; slots: number }
+export type GenerationOptions = {
+    rests: boolean
+    eighths: boolean
+    sixteenths: boolean
+    palmMutes: boolean
+    triplets: boolean
+}
 
-type RhythmCell = readonly number[]
-type MeasureEvent = { position: number; duration: number; isRest: boolean }
+type RhythmEvent = { duration: number; isTriplet?: boolean }
+type RhythmCell = readonly RhythmEvent[]
+type MeasureEvent = RhythmEvent & { position: number; isRest: boolean }
 
 export const signatures: Record<TimeSignature, SignatureSpec> = {
     '4/4': { beats: 4, unit: 4, slots: 16 },
@@ -11,27 +19,28 @@ export const signatures: Record<TimeSignature, SignatureSpec> = {
     '6/8': { beats: 2, unit: 8, slots: 12 },
 }
 
-/** Builds phrases from beat-sized cells, keeping attacks tied to the meter. */
+export const defaultGenerationOptions: GenerationOptions = {
+    rests: true,
+    eighths: true,
+    sixteenths: true,
+    palmMutes: true,
+    triplets: true,
+}
+
+/** Builds phrases from beat-sized cells selected by the enabled rhythm elements. */
 export function generateExercise(
     measures: number,
-    difficulty: number,
+    options: GenerationOptions,
     signature: TimeSignature,
 ): ExerciseNote[] {
     const spec = signatures[signature]
     const beatSlots = spec.slots / spec.beats
-    const motif = createMotif(spec.beats, difficulty, signature)
+    const motif = createMotif(spec.beats, beatSlots, signature, options)
     const pattern: ExerciseNote[] = []
 
     for (let measure = 0; measure < measures; measure++) {
-        const events = createMeasure(
-            measure,
-            spec.beats,
-            beatSlots,
-            difficulty,
-            signature,
-            motif,
-        )
-        const mutedRange = choosePalmMuteRange(events, beatSlots, difficulty)
+        const events = createMeasure(measure, spec.beats, beatSlots, signature, options, motif)
+        const mutedRange = options.palmMutes ? choosePalmMuteRange(events, beatSlots) : null
 
         events.forEach((event) => {
             const palmMuted =
@@ -46,6 +55,7 @@ export function generateExercise(
                 duration: event.duration,
                 isRest: event.isRest,
                 palmMuted,
+                isTriplet: event.isTriplet,
             })
         })
     }
@@ -55,114 +65,83 @@ export function generateExercise(
 
 function createMotif(
     beats: number,
-    difficulty: number,
+    beatSlots: number,
     signature: TimeSignature,
+    options: GenerationOptions,
 ): RhythmCell[] {
-    return Array.from({ length: beats }, () => chooseCell(difficulty, signature))
+    return Array.from({ length: beats }, () => chooseCell(beatSlots, signature, options))
 }
 
 function createMeasure(
     measure: number,
     beats: number,
     beatSlots: number,
-    difficulty: number,
     signature: TimeSignature,
+    options: GenerationOptions,
     motif: RhythmCell[],
 ): MeasureEvent[] {
     const events: MeasureEvent[] = []
 
     for (let beat = 0; beat < beats; beat++) {
-        // Repetition gives the player a phrase to recognise; the last beat
-        // is the natural place for a small turnaround.
         const varyBeat = measure > 0 && (beat === beats - 1 || Math.random() < 0.2)
-        const cell = varyBeat ? chooseCell(difficulty, signature) : motif[beat]
+        const cell = varyBeat ? chooseCell(beatSlots, signature, options) : motif[beat]
         let offset = beat * beatSlots
 
-        cell.forEach((duration, index) => {
+        cell.forEach((event, index) => {
             const isDownbeat = beat === 0 && index === 0
-            const canRest = !isDownbeat && index === 0 && duration >= 2
-            const restChance = difficulty === 1 ? 0.04 : difficulty === 2 ? 0.09 : 0.13
-            // A gap at the beginning of a later beat feels intentional.
-            const isRest = canRest && Math.random() < restChance
-            events.push({ position: offset, duration, isRest })
-            offset += duration
+            const canRest = !isDownbeat && index === 0 && event.duration >= 2 && !event.isTriplet
+            events.push({
+                ...event,
+                position: offset,
+                isRest: options.rests && canRest && Math.random() < 0.12,
+            })
+            offset += event.duration
         })
     }
 
     return events
 }
 
-function chooseCell(difficulty: number, signature: TimeSignature): RhythmCell {
-    if (signature === '6/8') return chooseWeighted(compoundCells(difficulty))
-    return chooseWeighted(simpleCells(difficulty))
-}
+function chooseCell(
+    beatSlots: number,
+    signature: TimeSignature,
+    options: GenerationOptions,
+): RhythmCell {
+    const choices: [RhythmCell, number][] = [[[{ duration: beatSlots }], 4]]
 
-function simpleCells(difficulty: number): readonly [RhythmCell, number][] {
-    if (difficulty === 1) {
-        return [
-            [[4], 7],
-            [[2, 2], 3],
-        ]
+    if (options.eighths) {
+        choices.push([[{ duration: beatSlots / 2 }, { duration: beatSlots / 2 }], 5])
     }
-    if (difficulty === 2) {
-        return [
-            [[4], 3],
-            [[2, 2], 5],
-            [[1, 1, 2], 2],
-            [[2, 1, 1], 2],
-        ]
+    if (options.sixteenths) {
+        choices.push([Array.from({ length: 4 }, () => ({ duration: beatSlots / 4 })), 3])
     }
-    return [
-        [[4], 2],
-        [[2, 2], 4],
-        [[1, 1, 2], 3],
-        [[2, 1, 1], 3],
-        [[3, 1], 2],
-        [[1, 3], 2],
-        [[1, 1, 1, 1], 1],
-    ]
-}
+    if (options.triplets) {
+        choices.push([
+            Array.from({ length: 3 }, () => ({ duration: beatSlots / 3, isTriplet: true })),
+            2,
+        ])
+    }
+    if (signature === '6/8' && options.triplets) {
+        choices.push([Array.from({ length: 3 }, () => ({ duration: beatSlots / 3 })), 3])
+    }
 
-function compoundCells(difficulty: number): readonly [RhythmCell, number][] {
-    if (difficulty === 1) {
-        return [
-            [[6], 6],
-            [[3, 3], 4],
-        ]
-    }
-    if (difficulty === 2) {
-        return [
-            [[6], 2],
-            [[3, 3], 5],
-            [[2, 2, 2], 3],
-            [[3, 1, 2], 2],
-        ]
-    }
-    return [
-        [[6], 1],
-        [[3, 3], 4],
-        [[2, 2, 2], 3],
-        [[3, 1, 2], 3],
-        [[2, 1, 3], 3],
-        [[1, 2, 1, 2], 1],
-    ]
+    return chooseWeighted(choices)
 }
 
 function choosePalmMuteRange(
     events: MeasureEvent[],
     beatSlots: number,
-    difficulty: number,
 ): { start: number; end: number } | null {
-    const chance = difficulty === 1 ? 0.08 : difficulty === 2 ? 0.17 : 0.25
-    if (Math.random() >= chance) return null
-
+    if (Math.random() >= 0.2) return null
     const playableBeatStarts = events.filter(
         (event) => !event.isRest && event.position % beatSlots === 0,
     )
     const start = playableBeatStarts[Math.floor(Math.random() * playableBeatStarts.length)]
     if (!start) return null
-    const length = beatSlots * (Math.random() < 0.7 ? 1 : 2)
-    return { start: start.position, end: start.position + length }
+    return {
+        start: start.position,
+        end: start.position + beatSlots * (Math.random() < 0.7 ? 1 : 2),
+    }
 }
 
 function chooseWeighted<T>(choices: readonly [T, number][]): T {
