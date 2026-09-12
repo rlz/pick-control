@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faPlay, faRotateRight, faStop } from '@fortawesome/free-solid-svg-icons'
+import { faGear, faPlay, faRotateRight, faStop, faXmark } from '@fortawesome/free-solid-svg-icons'
 import { useSnapshot } from 'valtio'
 import { Metronome, listenForOnsets, playRhythmPattern } from './audio'
 import { Measure } from './components/Measure'
@@ -19,6 +19,7 @@ function App() {
     const [activeSlot, setActiveSlot] = useState(-1)
     const [activeMeasure, setActiveMeasure] = useState(-1)
     const [previewing, setPreviewing] = useState<'all' | number | null>(null)
+    const [settingsOpen, setSettingsOpen] = useState(false)
     const cleanup = useRef<null | (() => void)>(null)
     const metronome = useRef(new Metronome())
     const startedAt = useRef(0)
@@ -218,9 +219,34 @@ function App() {
                 <h1 className="exercise-summary">
                     {signature} <span>·</span> {measures} measures
                 </h1>
+                <button
+                    className="settings-toggle"
+                    type="button"
+                    onClick={() => setSettingsOpen(true)}
+                    aria-label="Open exercise settings"
+                    aria-expanded={settingsOpen}
+                    aria-controls="exercise-settings"
+                >
+                    <FontAwesomeIcon icon={faGear} />
+                </button>
             </header>
             <div className="app-body">
-                <aside className="control-panel" aria-label="Exercise settings">
+                <aside
+                    className={`control-panel ${settingsOpen ? 'settings-open' : ''}`}
+                    id="exercise-settings"
+                    aria-label="Exercise settings"
+                >
+                    <div className="settings-panel-heading">
+                        <span>Exercise settings</span>
+                        <button
+                            className="settings-close"
+                            type="button"
+                            onClick={() => setSettingsOpen(false)}
+                            aria-label="Close exercise settings"
+                        >
+                            <FontAwesomeIcon icon={faXmark} />
+                        </button>
+                    </div>
                     <div className="setting-stack">
                         <label>
                             Measures

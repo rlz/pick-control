@@ -33,11 +33,8 @@ export function TimingDetail({
 
     return (
         <section className="detail">
-            <div>
-                <p className="eyebrow">
-                    MEASURE {String(measure + 1).padStart(2, '0')} · TIMING MAP
-                </p>
-                <h3>Where the attacks land</h3>
+            <div className="detail-controls">
+                <p className="eyebrow">{String(measure + 1).padStart(2, '0')}</p>
                 <button
                     className="detail-preview"
                     onClick={onPreview}
@@ -84,10 +81,6 @@ export function TimingDetail({
                     />
                 ))}
             </div>
-            <p className="detail-copy">
-                Gold markers are the written attacks. Teal markers are attacks detected from your
-                microphone. A hit is counted within ±150 ms.
-            </p>
         </section>
     )
 }

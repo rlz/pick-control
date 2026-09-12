@@ -63,6 +63,13 @@ button:disabled {
     border-bottom: 1px solid #2a3834;
     background: #17211f;
 }
+.settings-toggle,
+.settings-close {
+    display: none;
+}
+.settings-panel-heading {
+    display: none;
+}
 .brand {
     display: flex;
     align-items: center;
@@ -273,13 +280,18 @@ p {
     height: 100%;
     min-width: 0;
 }
-.detail h3 {
-    display: none;
+.detail-controls {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+.detail-controls .eyebrow {
+    margin: 0;
 }
 .detail-preview {
     flex: 0 0 auto;
-    width: 31px;
-    height: 31px;
+    width: 42px;
+    height: 42px;
     margin: 0;
     border: 1px solid #41534c;
     border-radius: 3px;
@@ -369,9 +381,6 @@ p {
 .rhythm-bar.palm-muted {
     background: repeating-linear-gradient(90deg, #d98e48 0 4px, #f3bb56 4px 7px);
 }
-.detail-copy {
-    display: none;
-}
 .transport {
     position: relative;
     z-index: 10;
@@ -395,6 +404,8 @@ p {
 .actions {
     display: flex;
     gap: 9px;
+    padding-left: 16px;
+    border-left: 1px solid #2a3834;
 }
 .icon-button {
     display: grid;
@@ -432,6 +443,43 @@ p {
     .control-panel {
         display: none;
     }
+    .control-panel.settings-open {
+        display: flex;
+        position: fixed;
+        z-index: 20;
+        inset: 0;
+        gap: 22px;
+        padding: 18px 20px 24px;
+        border: 0;
+        background: #141e1c;
+        animation: settings-enter 0.16s ease-out;
+    }
+    .settings-panel-heading {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        color: #f3bb56;
+        font-size: 15px;
+        font-weight: 700;
+    }
+    .settings-toggle,
+    .settings-close {
+        display: grid;
+        width: 36px;
+        height: 36px;
+        place-items: center;
+        border: 1px solid #41534c;
+        border-radius: 4px;
+        color: #dce5df;
+        background: #202c29;
+    }
+    .settings-toggle {
+        justify-self: end;
+    }
+    .settings-toggle:hover,
+    .settings-close:hover {
+        border-color: #f3bb56;
+    }
     .notation-scroll {
         padding: 29px 18px 18px;
     }
@@ -446,13 +494,21 @@ p {
     .detail {
         gap: 9px;
     }
-    .detail-copy {
-        display: none;
-    }
     .transport {
         padding: 0 16px;
     }
     .transport-info {
         min-width: 0;
+    }
+}
+
+@keyframes settings-enter {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
     }
 }
