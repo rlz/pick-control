@@ -67,9 +67,12 @@ export function EngravedMeasure({
         const [beats, beatValue] = signature.split('/').map(Number)
         const voice = new Voice({ numBeats: beats, beatValue }).setStrict(false)
         voice.addTickables(tickables)
-        const beams = Beam.generateBeams(tickables, { stemDirection: Stem.DOWN })
-        beams.forEach((beam) => beam.setStyle({ fillStyle: '#818cf8', strokeStyle: '#818cf8' }))
         const tripletGroups = groupTriplets(notes, tickables)
+        const beams = [
+            ...beamsWithoutTriplets(notes, tickables),
+            ...tripletGroups.map((group) => new Beam(group, false)),
+        ]
+        beams.forEach((beam) => beam.setStyle({ fillStyle: '#818cf8', strokeStyle: '#818cf8' }))
         new Formatter().joinVoices([voice]).format([voice], width - 18)
         voice.draw(context, stave)
         beams.forEach((beam) => beam.setContext(context).drawWithStyle())
@@ -133,6 +136,31 @@ function groupTriplets(notes: ExerciseNote[], tickables: StaveNote[]) {
         }
     }
     return groups
+}
+
+/**
+ * VexFlow's automatic beaming groups eighth notes in pairs. Keep triplet notes
+ * out of that pass, because each complete triplet gets its own three-note beam.
+ */
+function beamsWithoutTriplets(notes: ExerciseNote[], tickables: StaveNote[]) {
+    const beams: Beam[] = []
+    let run: StaveNote[] = []
+
+    const addRun = () => {
+        if (run.length) beams.push(...Beam.generateBeams(run, { stemDirection: Stem.DOWN }))
+        run = []
+    }
+
+    notes.forEach((note, index) => {
+        if (note.isTriplet) {
+            addRun()
+        } else {
+            run.push(tickables[index])
+        }
+    })
+    addRun()
+
+    return beams
 }
 
 function palmMuteGroups(notes: ExerciseNote[]) {
