@@ -11,10 +11,13 @@ import {
 import { useSnapshot } from 'valtio'
 import { Metronome, listenForOnsets, playRhythmPattern } from './audio'
 import { Measure } from './components/Measure'
+import { MeasureEditor } from './components/MeasureEditor'
+import { notesToSteps, stepsToNotes } from './domain/measureSteps'
+import type { StepKind } from './domain/measureSteps'
 import { TimingDetail } from './components/TimingDetail'
 import { generateExercise, signatures } from './domain/exercise'
 import type { GenerationOptions } from './domain/exercise'
-import { exerciseStore, setGenerationOptions } from './store/exerciseStore'
+import { exerciseStore, replaceMeasureNotes, setGenerationOptions } from './store/exerciseStore'
 import type { ExerciseNote, PlayerHit, TimeSignature } from './types'
 
 const currentTime = () => performance.now()
@@ -30,6 +33,8 @@ function App() {
     const [activeMeasure, setActiveMeasure] = useState(-1)
     const [previewing, setPreviewing] = useState<'all' | number | null>(null)
     const [settingsOpen, setSettingsOpen] = useState(false)
+    const [editorMeasure, setEditorMeasure] = useState<number | null>(null)
+    const [editorSteps, setEditorSteps] = useState<StepKind[]>([])
     const cleanup = useRef<null | (() => void)>(null)
     const metronome = useRef(new Metronome())
     const startedAt = useRef(0)
@@ -111,6 +116,31 @@ function App() {
         setActiveSlot(-1)
         setActiveMeasure(-1)
     }
+    function openMeasureEditor() {
+        if (selectedMeasure === null || state === 'count-in' || state === 'playing') return
+        stopPreview()
+        setEditorSteps(
+            notesToSteps(
+                exercise.filter((note) => note.measure === selectedMeasure),
+                spec.slots,
+            ),
+        )
+        setEditorMeasure(selectedMeasure)
+    }
+    function setEditorStep(step: number, kind: StepKind) {
+        setEditorSteps((previous) => {
+            const next = [...previous]
+            next[step] = kind
+            return next
+        })
+    }
+    function saveMeasureEditor() {
+        if (editorMeasure === null) return
+        const replacement = stepsToNotes(editorSteps, editorMeasure)
+        replaceMeasureNotes(editorMeasure, replacement)
+        setHits([])
+        setEditorMeasure(null)
+    }
     function stopPreview() {
         previewRequest.current++
         previewStop.current?.()
@@ -144,7 +174,7 @@ function App() {
         }
         progressFrame.current = requestAnimationFrame(update)
     }
-    async function previewPattern(measure?: number) {
+    async function previewPattern(measure?: number, notes = exercise) {
         if (state === 'count-in' || state === 'playing') return
         const target = measure ?? 'all'
         if (previewing === target) {
@@ -159,7 +189,7 @@ function App() {
         setActiveSlot(-1)
         try {
             const preview = await playRhythmPattern(
-                exercise,
+                notes,
                 bpm,
                 spec.beats,
                 spec.slots,
@@ -374,6 +404,8 @@ function App() {
                             measureMs={measureMs}
                             onPreview={() => previewPattern(selectedMeasure)}
                             isPreviewing={previewing === selectedMeasure}
+                            onEdit={openMeasureEditor}
+                            isEditingDisabled={state === 'count-in' || state === 'playing'}
                         />
                     ) : null}
                 </div>
@@ -435,6 +467,23 @@ function App() {
                     </div>
                 </div>
             </footer>
+            {editorMeasure !== null ? (
+                <MeasureEditor
+                    measure={editorMeasure}
+                    signature={signature}
+                    steps={editorSteps}
+                    isPreviewing={previewing === editorMeasure}
+                    onChange={setEditorStep}
+                    onPreview={() =>
+                        previewPattern(editorMeasure, stepsToNotes(editorSteps, editorMeasure))
+                    }
+                    onSave={saveMeasureEditor}
+                    onClose={() => {
+                        stopPreview()
+                        setEditorMeasure(null)
+                    }}
+                />
+            ) : null}
         </main>
     )
 }

@@ -62,6 +62,13 @@ export function setGenerationOptions(options: GenerationOptions) {
     )
 }
 
+export function replaceMeasureNotes(measure: number, notes: ExerciseNote[]) {
+    exerciseStore.exercise = [
+        ...exerciseStore.exercise.filter((note) => note.measure !== measure),
+        ...notes,
+    ].sort((left, right) => left.measure - right.measure || left.position - right.position)
+}
+
 subscribe(exerciseStore, () => {
     try {
         window.localStorage.setItem(STORAGE_KEY, JSON.stringify(exerciseStore))

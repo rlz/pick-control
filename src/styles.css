@@ -276,6 +276,174 @@ button:disabled {
     color: #1e1b4b;
     background: #a5b4fc;
 }
+.measure-editor-backdrop {
+    position: fixed;
+    z-index: 40;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 1rem;
+    background: #020617cc;
+    backdrop-filter: blur(7px);
+}
+.measure-editor {
+    width: min(42rem, 100%);
+    border: 1px solid #334155;
+    border-radius: 1rem;
+    background: #0f172a;
+    box-shadow: 0 24px 70px #00000080;
+    overflow: hidden;
+}
+.measure-editor-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.25rem 1.25rem 0.75rem;
+}
+.measure-editor-header p {
+    margin: 0 0 0.25rem;
+    color: #94a3b8;
+    font: 10px var(--font-mono);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+.measure-editor-header h2 {
+    margin: 0;
+    color: #e0e7ff;
+    font-size: 1.125rem;
+}
+.editor-close {
+    display: grid;
+    width: 2.25rem;
+    height: 2.25rem;
+    place-items: center;
+    border: 1px solid #334155;
+    border-radius: 0.5rem;
+    color: #cbd5e1;
+    background: #1e293b;
+}
+.editor-help {
+    margin: 0;
+    padding: 0 1.25rem 1rem;
+    color: #94a3b8;
+    font-size: 0.8125rem;
+}
+.editor-matrix {
+    display: grid;
+    gap: 0.4rem;
+    padding: 1rem 1.25rem;
+    border-top: 1px solid #1e293b;
+    border-bottom: 1px solid #1e293b;
+    background: #02061780;
+}
+.editor-matrix-axis,
+.editor-state-row {
+    display: grid;
+    grid-template-columns: 5.75rem minmax(0, 1fr);
+    gap: 0.6rem;
+    align-items: center;
+}
+.editor-matrix-axis > div {
+    display: grid;
+}
+.editor-matrix-axis i {
+    min-width: 0;
+    border-left: 1px solid transparent;
+    color: #64748b;
+    font: 10px var(--font-mono);
+    font-style: normal;
+    text-align: left;
+}
+.editor-matrix-axis i.beat-start,
+.rhythm-cell.beat-start {
+    border-left-color: #64748b;
+}
+.editor-row-label {
+    color: #cbd5e1;
+    font: 500 0.7rem var(--font-sans);
+}
+.editor-cells {
+    display: grid;
+    gap: 0.2rem;
+}
+.rhythm-cell {
+    display: grid;
+    aspect-ratio: 1;
+    min-width: 0;
+    place-items: center;
+    border: 1px solid #475569;
+    border-radius: 0.35rem;
+    color: transparent;
+    background: #0f172a;
+    font: 600 0.7rem var(--font-mono);
+    transition:
+        transform 0.12s ease,
+        border-color 0.12s ease,
+        background 0.12s ease;
+}
+.rhythm-cell:hover {
+    border-color: #a5b4fc;
+    transform: translateY(-1px);
+}
+.rhythm-cell.note.selected {
+    border-color: #818cf8;
+    color: #e0e7ff;
+    background: #4f46e540;
+}
+.rhythm-cell.mute.selected {
+    border-color: #94a3b8;
+    color: #e2e8f0;
+    background: #47556980;
+    font-size: 0.55rem;
+}
+.rhythm-cell.triplet.selected {
+    border-color: #22d3ee;
+    color: #a5f3fc;
+    background: #0891b230;
+}
+.rhythm-cell.continue.selected {
+    border-style: dashed;
+    color: #94a3b8;
+    background: #1e293b;
+}
+.rhythm-cell.rest.selected {
+    border-color: #334155;
+    color: #64748b;
+    background: #0f172a;
+}
+.measure-editor-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem 1.25rem;
+}
+.measure-editor-actions button {
+    border-radius: 0.5rem;
+    padding: 0.65rem 0.85rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+.measure-editor-actions > div {
+    display: flex;
+    gap: 0.5rem;
+}
+.editor-preview,
+.editor-cancel {
+    border: 1px solid #334155;
+    color: #e2e8f0;
+    background: #1e293b;
+}
+.editor-preview {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.editor-save {
+    border: 1px solid #818cf8;
+    color: #1e1b4b;
+    background: #a5b4fc;
+}
 
 @media (max-width: 1023px) {
     .app-body {
@@ -309,6 +477,34 @@ button:disabled {
     }
     .notation-scroll {
         padding: 1.25rem 1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .measure-editor-backdrop {
+        padding: 0.5rem;
+    }
+    .editor-matrix {
+        gap: 0.3rem;
+        padding: 0.85rem;
+    }
+    .editor-matrix-axis,
+    .editor-state-row {
+        grid-template-columns: 4.5rem minmax(0, 1fr);
+        gap: 0.4rem;
+    }
+    .editor-cells {
+        gap: 0.2rem;
+    }
+    .measure-editor-actions {
+        align-items: stretch;
+        flex-direction: column;
+    }
+    .measure-editor-actions > div {
+        width: 100%;
+    }
+    .measure-editor-actions button {
+        flex: 1;
     }
 }
 

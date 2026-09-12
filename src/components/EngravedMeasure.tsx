@@ -9,6 +9,7 @@ import {
     StaveNote,
     Stem,
     TextBracket,
+    Tuplet,
     Voice,
 } from 'vexflow'
 import type { ExerciseNote, TimeSignature } from '../types'
@@ -48,7 +49,7 @@ export function EngravedMeasure({
         stave.setContext(context).drawWithStyle()
 
         const tickables = notes.map((note) => {
-            const notation = notationDuration(note.duration, note.isRest)
+            const notation = notationDuration(note.duration, note.isRest, note.isTriplet)
             const staveNote = new StaveNote({ keys: ['b/4'], duration: notation.duration })
             staveNote.setStemDirection(Stem.DOWN)
             const isActive =
@@ -66,8 +67,11 @@ export function EngravedMeasure({
 
         const [beats, beatValue] = signature.split('/').map(Number)
         const voice = new Voice({ numBeats: beats, beatValue }).setStrict(false)
-        voice.addTickables(tickables)
         const tripletGroups = groupTriplets(notes, tickables)
+        tripletGroups.forEach((group) => {
+            new Tuplet(group, { numNotes: 3, notesOccupied: 2, bracketed: true })
+        })
+        voice.addTickables(tickables)
         const beams = [
             ...beamsWithoutTriplets(notes, tickables),
             ...tripletGroups.map((group) => new Beam(group, false)),
@@ -76,6 +80,11 @@ export function EngravedMeasure({
         new Formatter().joinVoices([voice]).format([voice], width - 18)
         voice.draw(context, stave)
         beams.forEach((beam) => beam.setContext(context).drawWithStyle())
+        // Creating Tuplet attaches VexFlow's 3:2 tick multiplier, which keeps the
+        // group inside one beat. Draw the visible mark ourselves: VexFlow's tuplet
+        // glyph has disappeared in this compact, manually-beamed score before.
+        // The text bracket is intentionally drawn after beams, so the 3 is never
+        // obscured by their SVG paths.
         tripletGroups.forEach((group) => {
             const bracket = new TextBracket({
                 start: group[0],
@@ -184,9 +193,11 @@ function palmMuteGroups(notes: ExerciseNote[]) {
     )
 }
 
-function notationDuration(duration: number, isRest = false) {
+function notationDuration(duration: number, isRest = false, isTriplet = false) {
     const durations: Record<number, { duration: string; dotted?: boolean }> = {
+        0.5: { duration: '32' },
         1: { duration: '16' },
+        1.5: { duration: '16d', dotted: true },
         2: { duration: '8' },
         3: { duration: '8d', dotted: true },
         4: { duration: 'q' },
@@ -195,6 +206,11 @@ function notationDuration(duration: number, isRest = false) {
         12: { duration: 'hd', dotted: true },
         16: { duration: 'w' },
     }
-    const notation = durations[duration] ?? { duration: '8' }
+    // A 3:2 tuplet's written note is half of the group's total span.
+    // `duration` here is one of the three performed notes, so its written
+    // value is 3/2 of that duration: 16th, eighth, quarter, and so on.
+    const notation = isTriplet
+        ? (durations[duration * 1.5] ?? { duration: '8' })
+        : (durations[duration] ?? { duration: '8' })
     return { ...notation, duration: `${notation.duration}${isRest ? 'r' : ''}` }
 }
