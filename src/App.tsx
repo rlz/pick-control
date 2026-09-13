@@ -35,6 +35,7 @@ function App() {
     const exercise: ExerciseNote[] = storedExercise.exercise.map((note) => ({ ...note }))
     const [hits, setHits] = useState<PlayerHit[]>([])
     const [state, setState] = useState<'ready' | 'count-in' | 'playing' | 'finished'>('ready')
+    const [countInBeat, setCountInBeat] = useState(0)
     const [selectedMeasure, setSelectedMeasure] = useState<number | null>(null)
     const [activeSlot, setActiveSlot] = useState(-1)
     const [activeMeasure, setActiveMeasure] = useState(-1)
@@ -111,6 +112,7 @@ function App() {
         if (timer.current) clearTimeout(timer.current)
         setHits([])
         setState('ready')
+        setCountInBeat(0)
         setActiveSlot(-1)
         setActiveMeasure(-1)
     }
@@ -249,10 +251,10 @@ function App() {
     async function startExercise() {
         reset()
         setState('count-in')
-        let count = 0
-        metronome.current.start(beatMs, () => {
-            count++
-            if (count === 4) {
+        metronome.current.start(beatMs, (beat) => {
+            const displayedBeat = beat + 1
+            setCountInBeat(displayedBeat)
+            if (displayedBeat === 4) {
                 metronome.current.stop()
                 beginRecording()
             }
@@ -354,7 +356,7 @@ function App() {
                 ) : null}
             </header>
             <div className="app-body grid min-h-0 overflow-hidden">
-                <section className="grid min-h-0 min-w-0 overflow-hidden bg-slate-950">
+                <section className="relative grid min-h-0 min-w-0 overflow-hidden bg-slate-950">
                     <div className="notation-scroll p-5 md:p-7" ref={notationScroll}>
                         <div className="flex min-w-0 flex-wrap content-start pb-36">
                             {Array.from({ length: measures }, (_, index) => (
@@ -384,6 +386,27 @@ function App() {
                             ))}
                         </div>
                     </div>
+                    {state === 'count-in' ? (
+                        <div
+                            className="count-in-overlay"
+                            aria-live="assertive"
+                            aria-atomic="true"
+                            role="status"
+                        >
+                            <span className="count-in-label">Get ready</span>
+                            <strong className="count-in-beat" key={countInBeat}>
+                                {countInBeat || 1}
+                            </strong>
+                            <span className="count-in-dots" aria-hidden="true">
+                                {Array.from({ length: 4 }, (_, index) => (
+                                    <i
+                                        className={index < countInBeat ? 'is-complete' : ''}
+                                        key={index}
+                                    />
+                                ))}
+                            </span>
+                        </div>
+                    ) : null}
                 </section>
             </div>
             <footer className="relative z-10 flex items-center justify-between gap-4 border-t border-slate-800 bg-slate-900 px-4 md:px-7">
