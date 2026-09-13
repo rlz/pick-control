@@ -315,12 +315,15 @@ button:disabled {
     backdrop-filter: blur(7px);
 }
 .measure-editor {
-    width: min(42rem, 100%);
+    width: 100%;
     border: 1px solid #334155;
     border-radius: 1rem;
     background: #0f172a;
     box-shadow: 0 24px 70px #00000080;
     overflow: hidden;
+}
+.measure-editor-shell {
+    width: min(72rem, 100%);
 }
 .exercise-settings-modal {
     display: flex;
@@ -352,20 +355,30 @@ button:disabled {
 }
 .settings-tab-bar {
     display: flex;
+    height: 4.25rem;
+    flex: none;
+    position: relative;
     align-items: center;
     justify-content: space-between;
-    padding: 0 1.25rem;
+    padding: 1rem 1.25rem 0;
     border-bottom: 1px solid #1e293b;
 }
 .settings-tabs {
     display: flex;
+    align-self: flex-end;
     gap: 0.25rem;
     padding: 0;
+}
+.settings-tab-bar > .editor-close {
+    position: absolute;
+    top: 50%;
+    right: 1.25rem;
+    transform: translateY(-50%);
 }
 .settings-tabs button {
     border: 0;
     border-bottom: 2px solid transparent;
-    padding: 0.75rem 0.65rem;
+    padding: 0.45rem 0.65rem;
     color: #94a3b8;
     background: transparent;
     font-size: 0.8rem;
@@ -393,20 +406,8 @@ button:disabled {
 .measure-editor-header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 1.25rem 1.25rem 0.75rem;
-}
-.measure-editor-header p {
-    margin: 0 0 0.25rem;
-    color: #94a3b8;
-    font: 10px var(--font-mono);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-}
-.measure-editor-header h2 {
-    margin: 0;
-    color: #e0e7ff;
-    font-size: 1.125rem;
+    justify-content: flex-end;
+    padding: 1rem 1.25rem;
 }
 .editor-close {
     display: grid;
@@ -417,12 +418,6 @@ button:disabled {
     border-radius: 0.5rem;
     color: #cbd5e1;
     background: #1e293b;
-}
-.editor-help {
-    margin: 0;
-    padding: 0 1.25rem 1rem;
-    color: #94a3b8;
-    font-size: 0.8125rem;
 }
 .editor-matrix {
     display: grid;

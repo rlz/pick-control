@@ -42,24 +42,17 @@ export function MeasureEditor({
     const beatSlots = signature === '6/8' ? 6 : 4
 
     const editor = (
-            <section className={embedded ? 'measure-editor embedded' : 'measure-editor'} role={embedded ? undefined : 'dialog'} aria-modal={embedded ? undefined : true} aria-labelledby="measure-editor-title">
+            <section className={embedded ? 'measure-editor embedded' : 'measure-editor'} role={embedded ? undefined : 'dialog'} aria-modal={embedded ? undefined : true} aria-label={embedded ? undefined : `Measure ${measure + 1} editor, ${signature}`}>
                 {!embedded ? <header className="measure-editor-header">
-                    <div>
-                        <p>Measure {measure + 1}</p>
-                        <h2 id="measure-editor-title">Rhythm editor · {signature}</h2>
-                    </div>
-                    {!embedded ? <button
+                    <button
                         className="editor-close"
                         type="button"
                         onClick={onClose}
                         aria-label="Close editor"
                     >
                         <FontAwesomeIcon icon={faXmark} />
-                    </button> : null}
+                    </button>
                 </header> : null}
-                {!embedded ? <p className="editor-help">
-                    Pick a state from its row. Continue cells after a triplet set its length.
-                </p> : null}
                 <div className="editor-matrix">
                     <div className="editor-matrix-axis">
                         <span />
@@ -160,7 +153,7 @@ export function MeasureEditor({
     )
     return embedded ? editor : (
         <div className="measure-editor-backdrop" role="presentation" onMouseDown={onClose}>
-            <div onMouseDown={(event) => event.stopPropagation()}>{editor}</div>
+            <div className="measure-editor-shell" onMouseDown={(event) => event.stopPropagation()}>{editor}</div>
         </div>
     )
 }
