@@ -510,7 +510,10 @@ function App() {
                 </div>
             </header>
             <div className="app-body grid min-h-0 overflow-hidden">
-                <section className="relative grid min-h-0 min-w-0 overflow-hidden bg-slate-950">
+                <section
+                    className="relative grid min-h-0 min-w-0 overflow-hidden bg-slate-950"
+                    onClick={() => setTempoOpen(false)}
+                >
                     <div className="notation-scroll p-5 md:p-7" ref={notationScroll}>
                         <div className="flex min-w-0 flex-wrap content-start pb-36">
                             {Array.from({ length: measures }, (_, index) => (
