@@ -45,8 +45,6 @@ function App() {
     const [editorMeasure, setEditorMeasure] = useState<number | null>(null)
     const [editorSteps, setEditorSteps] = useState<StepKind[]>([])
     const [editorStrokes, setEditorStrokes] = useState<(PickStroke | undefined)[]>([])
-    const [manualSteps, setManualSteps] = useState<StepKind[]>([])
-    const [manualStrokes, setManualStrokes] = useState<(PickStroke | undefined)[]>([])
     const cleanup = useRef<null | (() => void)>(null)
     const metronome = useRef(new Metronome())
     const startedAt = useRef(0)
@@ -94,27 +92,6 @@ function App() {
             behavior: 'smooth',
         })
     }, [activeMeasure, previewing, state])
-    function updateExerciseSettings(nextMeasures: number, nextSignature: TimeSignature) {
-        if (state === 'count-in' || state === 'playing') return
-        exerciseStore.measures = nextMeasures
-        exerciseStore.signature = nextSignature
-        const nextSlots = signatures[nextSignature].slots
-        if (nextSignature !== signature) {
-            exerciseStore.exercise = Array.from({ length: nextMeasures }, (_, measure) =>
-                silentMeasure(measure, nextSlots),
-            ).flat()
-            setManualSteps(Array.from({ length: nextSlots }, () => 'rest'))
-            setManualStrokes(Array.from({ length: nextSlots }))
-        } else {
-            exerciseStore.exercise = Array.from({ length: nextMeasures }, (_, measure) => {
-                const existing = exercise.filter((note) => note.measure === measure)
-                return existing.length ? existing : silentMeasure(measure, nextSlots)
-            }).flat()
-        }
-        setHits([])
-        setSelectedMeasure(null)
-        setState('ready')
-    }
     function generateFromSettings(
         nextMeasures: number,
         nextOptions: GenerationOptions,
@@ -148,9 +125,6 @@ function App() {
     function openExerciseSettings() {
         if (state === 'count-in' || state === 'playing') return
         stopPreview()
-        const measureNotes = exercise.filter((note) => note.measure === 0)
-        setManualSteps(notesToSteps(measureNotes, spec.slots))
-        setManualStrokes(notesToStrokes(measureNotes, spec.slots))
         setSettingsOpen(true)
     }
     function setEditorStroke(step: number, stroke: PickStroke) {
@@ -174,45 +148,17 @@ function App() {
         setHits([])
         setEditorMeasure(null)
     }
-    function setManualStroke(step: number, stroke: PickStroke) {
-        setManualStrokes((previous) => {
-            const next = [...previous]
-            next[step] = stroke
-            return next
-        })
-    }
-    function setManualStep(step: number, kind: StepKind) {
-        const wasRest = manualSteps[step] === 'rest'
-        setManualSteps((previous) => {
-            const next = [...previous]
-            next[step] = kind
-            return next
-        })
-        if (kind === 'rest') {
-            setManualStrokes((previous) => {
-                const next = [...previous]
-                next[step] = undefined
-                return next
-            })
-            return
-        }
-        if (!wasRest || kind === 'continue') return
-        setManualStrokes((previous) => {
-            const next = [...previous]
-            let previousStroke: PickStroke | undefined
-            for (let index = step - 1; index >= 0; index--) {
-                if (previous[index]) {
-                    previousStroke = previous[index]
-                    break
-                }
-            }
-            next[step] = previousStroke === 'down' ? 'up' : 'down'
-            return next
-        })
-    }
-    function saveManualMeasure() {
-        const replacement = stepsToNotes(manualSteps, 0, manualStrokes)
-        exerciseStore.exercise = Array.from({ length: measures }, (_, measure) =>
+    function saveManualMeasure(
+        nextMeasures: number,
+        nextSignature: TimeSignature,
+        steps: StepKind[],
+        strokes: (PickStroke | undefined)[],
+    ) {
+        if (state === 'count-in' || state === 'playing') return
+        const replacement = stepsToNotes(steps, 0, strokes)
+        exerciseStore.measures = nextMeasures
+        exerciseStore.signature = nextSignature
+        exerciseStore.exercise = Array.from({ length: nextMeasures }, (_, measure) =>
             replacement.map((note) => ({
                 ...note,
                 id: `${measure}-${note.position}`,
@@ -369,19 +315,43 @@ function App() {
                     {signature} <span className="px-1 text-slate-500">·</span> {measures} measures
                 </h1>
                 <div className="ml-auto flex items-center gap-2">
-                <button
-                    className="header-control"
-                    type="button"
-                    onClick={openExerciseSettings}
-                    aria-label="Open exercise settings"
-                    aria-expanded={settingsOpen}
-                >
-                    <FontAwesomeIcon icon={faGear} />
-                    <span>Exercise</span>
-                </button>
-                <button className="header-control" type="button" onClick={() => setTempoOpen((open) => !open)} aria-expanded={tempoOpen} aria-label="Change tempo"><span className="tempo-value">{bpm}</span><span>BPM</span></button>
+                    <button
+                        className="header-control"
+                        type="button"
+                        onClick={openExerciseSettings}
+                        aria-label="Open exercise settings"
+                        aria-expanded={settingsOpen}
+                    >
+                        <FontAwesomeIcon icon={faGear} />
+                        <span>Exercise</span>
+                    </button>
+                    <button
+                        className="header-control"
+                        type="button"
+                        onClick={() => setTempoOpen((open) => !open)}
+                        aria-expanded={tempoOpen}
+                        aria-label="Change tempo"
+                    >
+                        <span className="tempo-value">{bpm}</span>
+                        <span>BPM</span>
+                    </button>
                 </div>
-                {tempoOpen ? <div className="tempo-popover"><label>Tempo <output>{bpm} BPM</output><input type="range" min="45" max="180" value={bpm} onChange={(event) => (exerciseStore.bpm = Number(event.target.value))} /></label></div> : null}
+                {tempoOpen ? (
+                    <div className="tempo-popover">
+                        <label>
+                            Tempo <output>{bpm} BPM</output>
+                            <input
+                                type="range"
+                                min="45"
+                                max="180"
+                                value={bpm}
+                                onChange={(event) =>
+                                    (exerciseStore.bpm = Number(event.target.value))
+                                }
+                            />
+                        </label>
+                    </div>
+                ) : null}
             </header>
             <div className="app-body grid min-h-0 overflow-hidden">
                 <section className="grid min-h-0 min-w-0 overflow-hidden bg-slate-950">
@@ -528,13 +498,31 @@ function App() {
                     }}
                 />
             ) : null}
-            {settingsOpen ? <ExerciseSettingsModal measures={measures} signature={signature} options={generationOptions} onClose={() => setSettingsOpen(false)} onSettingsChange={updateExerciseSettings} manualSteps={manualSteps} manualStrokes={manualStrokes} isManualPreviewing={previewing === 0} onManualChange={setManualStep} onManualStrokeChange={setManualStroke} onManualPreview={() => previewPattern(0, stepsToNotes(manualSteps, 0, manualStrokes))} onManualSave={saveManualMeasure} onPreset={choosePreset} onGenerate={generateFromSettings} /> : null}
+            {settingsOpen ? (
+                <ExerciseSettingsModal
+                    measures={measures}
+                    signature={signature}
+                    options={generationOptions}
+                    onClose={() => setSettingsOpen(false)}
+                    manualSteps={notesToSteps(
+                        exercise.filter((note) => note.measure === 0),
+                        spec.slots,
+                    )}
+                    manualStrokes={notesToStrokes(
+                        exercise.filter((note) => note.measure === 0),
+                        spec.slots,
+                    )}
+                    isManualPreviewing={previewing === 0}
+                    onManualPreview={(steps, strokes) =>
+                        previewPattern(0, stepsToNotes(steps, 0, strokes))
+                    }
+                    onManualSave={saveManualMeasure}
+                    onPreset={choosePreset}
+                    onGenerate={generateFromSettings}
+                />
+            ) : null}
         </main>
     )
-}
-
-function silentMeasure(measure: number, slots: number): ExerciseNote[] {
-    return [{ id: `${measure}-0`, measure, position: 0, duration: slots, isRest: true }]
 }
 
 export default App
