@@ -319,7 +319,7 @@ button:disabled {
 }
 .exercise-settings-modal {
     display: flex;
-    width: min(46rem, 100%);
+    width: min(60rem, 100%);
     height: min(44rem, calc(100dvh - 2rem));
     flex-direction: column;
     overflow: hidden;
@@ -380,10 +380,11 @@ button:disabled {
 .settings-action { justify-self: start; border-radius: 0.5rem; padding: 0.65rem 0.85rem; font-size: 0.8125rem; font-weight: 600; }
 .generator-tab { display: grid; gap: 1.25rem; }
 .preset-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
-.preset-grid button { display: grid; grid-template-columns: 1.5rem minmax(0, 1fr); gap: 0.45rem; align-items: center; border: 1px solid #334155; border-radius: 0.5rem; padding: 0.65rem; color: #cbd5e1; background: #1e293b; text-align: left; transition: 0.15s ease; }
+.preset-grid button { display: grid; grid-template-columns: 1.5rem minmax(0, 1fr); gap: 0.45rem; align-items: center; min-height: 8rem; border: 1px solid #334155; border-radius: 0.5rem; padding: 0.45rem 0.65rem; color: #cbd5e1; background: #1e293b; text-align: left; transition: 0.15s ease; }
 .preset-grid button:hover { border-color: #818cf8; background: #273449; }
 .preset-grid strong { color: #a5b4fc; font: 500 0.7rem var(--font-mono); }
-.preset-grid span { overflow: hidden; color: #e2e8f0; font: 0.7rem var(--font-mono); letter-spacing: 0.04em; white-space: nowrap; }
+.preset-notation { display: flex; width: 100%; min-width: 0; height: 7.5rem; overflow: hidden; }
+.preset-notation-measure { position: relative; min-width: 0; flex: 1 1 50%; height: 100%; }
 .measure-editor-header {
     display: flex;
     align-items: center;

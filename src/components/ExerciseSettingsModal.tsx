@@ -1,11 +1,12 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faPlay, faStop, faXmark } from '@fortawesome/free-solid-svg-icons'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { GenerationOptions } from '../domain/exercise'
-import { stickControlPresets, type StickControlPreset } from '../domain/stickControlPresets'
+import { presetToExercise, stickControlPresets, type StickControlPreset } from '../domain/stickControlPresets'
 import type { PickStroke, TimeSignature } from '../types'
 import type { StepKind } from '../domain/measureSteps'
 import { MeasureEditor } from './MeasureEditor'
+import { EngravedMeasure } from './EngravedMeasure'
 
 type Tab = 'manual' | 'presets' | 'generator'
 
@@ -31,6 +32,33 @@ const tabs: { id: Tab; label: string }[] = [
     { id: 'presets', label: 'Presets' },
     { id: 'generator', label: 'Generator' },
 ]
+
+function PresetNotation({ preset }: { preset: StickControlPreset }) {
+    const notes = presetToExercise(preset)
+    const element = useRef<HTMLSpanElement>(null)
+    const [measureWidth, setMeasureWidth] = useState(124)
+
+    useEffect(() => {
+        const container = element.current
+        if (!container) return
+
+        const updateWidth = () => setMeasureWidth(Math.floor(container.clientWidth / 2))
+        updateWidth()
+        const observer = new ResizeObserver(updateWidth)
+        observer.observe(container)
+        return () => observer.disconnect()
+    }, [])
+
+    return (
+        <span className="preset-notation" ref={element} aria-hidden="true">
+            {[0, 1].map((measure) => (
+                <span className="preset-notation-measure" key={measure}>
+                    <EngravedMeasure measureNumber={measure + 1} showMeasureNumber={false} notes={notes.filter((note) => note.measure === measure)} signature="4/4" width={measureWidth} scale={1} activeSlot={-1} />
+                </span>
+            ))}
+        </span>
+    )
+}
 
 export function ExerciseSettingsModal({
     measures,
@@ -78,7 +106,7 @@ export function ExerciseSettingsModal({
                         </div>
                         <MeasureEditor measure={0} signature={signature} steps={manualSteps} strokes={manualStrokes} isPreviewing={isManualPreviewing} onChange={onManualChange} onStrokeChange={onManualStrokeChange} onPreview={onManualPreview} onSave={onManualSave} onClose={onClose} embedded />
                     </div> : null}
-                    {tab === 'presets' ? <div className="preset-grid">{stickControlPresets.map((preset) => <button type="button" key={preset.number} onClick={() => onPreset(preset)}><strong>{preset.number}</strong><span>{preset.sticking.replace(/(.{4})/g, '$1 ').trim()}</span></button>)}</div> : null}
+                    {tab === 'presets' ? <div className="preset-grid">{stickControlPresets.map((preset) => <button type="button" key={preset.number} onClick={() => onPreset(preset)} aria-label={'Choose preset ' + preset.number}><strong>{preset.number}</strong><PresetNotation preset={preset} /></button>)}</div> : null}
                     {tab === 'generator' ? <div className="generator-tab">
                         <div className="settings-fields">
                             <label>Time signature<select value={generatorSignature} onChange={(event) => setGeneratorSignature(event.target.value as TimeSignature)}><option>4/4</option><option>3/4</option><option>6/8</option></select></label>

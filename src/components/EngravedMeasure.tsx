@@ -17,6 +17,7 @@ import type { ExerciseNote, TimeSignature } from '../types'
 
 type Props = {
     measureNumber: number
+    showMeasureNumber?: boolean
     notes: ExerciseNote[]
     signature: TimeSignature
     width: number
@@ -26,6 +27,7 @@ type Props = {
 
 export function EngravedMeasure({
     measureNumber,
+    showMeasureNumber = true,
     notes,
     signature,
     width,
@@ -43,9 +45,9 @@ export function EngravedMeasure({
         renderer.resize(width, height)
         const context = renderer.getContext()
         const stave = new Stave(0, 24, width - 2)
-            .setMeasure(measureNumber)
             .setBegBarType(Barline.type.SINGLE)
             .setEndBarType(Barline.type.SINGLE)
+        if (showMeasureNumber) stave.setMeasure(measureNumber)
         stave.setStyle({ fillStyle: '#94a3b8', strokeStyle: '#cbd5e1' })
         stave.setContext(context).drawWithStyle()
 
@@ -134,7 +136,7 @@ export function EngravedMeasure({
             svg.style.left = '0'
             svg.style.top = `${(height - scaledHeight) / 2}px`
         }
-    }, [activeSlot, measureNumber, notes, scale, signature, width])
+    }, [activeSlot, measureNumber, notes, scale, showMeasureNumber, signature, width])
 
     return <div className="vexflow-measure" ref={element} aria-hidden="true" />
 }
