@@ -4,6 +4,9 @@ import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+    // Keep generated asset URLs relative to index.html. This lets the same build run
+    // both at a custom-domain root and under GitHub Pages' /taktcontrol/ path.
+    base: './',
     plugins: [
         react(),
         tailwindcss(),
