@@ -1,4 +1,5 @@
 import { EngravedMeasure } from './EngravedMeasure'
+import { getNoteFeedback } from '../domain/noteFeedback'
 import { useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
 import type { ExerciseNote, PlayerHit, TimeSignature } from '../types'
@@ -63,13 +64,7 @@ export function Measure({
         ),
     )
     const displayWidth = Math.round(measureWidth * notationScale)
-    const isOnTime = (hit: PlayerHit) =>
-        notes
-            .filter((note) => !note.isRest)
-            .some(
-                (note) =>
-                    Math.abs((hit.time % measureMs) - (note.position / slots) * measureMs) < 150,
-            )
+    const noteFeedback = getNoteFeedback(notes, hits, slots, measureMs)
 
     return (
         <button
@@ -87,15 +82,8 @@ export function Measure({
                     width={measureWidth}
                     scale={notationScale}
                     activeSlot={activeSlot}
+                    noteFeedback={noteFeedback}
                 />
-                {hits.map((hit, hitIndex) => (
-                    <b
-                        className={`player-hit ${isOnTime(hit) ? 'correct' : 'incorrect'}`}
-                        key={hitIndex}
-                        style={{ left: `${((hit.time % measureMs) / measureMs) * 100}%` }}
-                        title={isOnTime(hit) ? 'On time' : 'Off beat'}
-                    />
-                ))}
             </div>
             <span className="tap">inspect timing</span>
         </button>

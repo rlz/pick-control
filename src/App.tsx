@@ -2,6 +2,7 @@ import { type CSSProperties, useEffect, useRef, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
     faGear,
+    faMicrophone,
     faPlay,
     faRepeat,
     faRotateRight,
@@ -9,10 +10,11 @@ import {
     faVolumeHigh,
 } from '@fortawesome/free-solid-svg-icons'
 import { useSnapshot } from 'valtio'
-import { Metronome, listenForOnsets, playRhythmPattern } from './audio'
+import { getAudioCalibration, Metronome, listenForOnsets, playRhythmPattern } from './audio'
 import { Measure } from './components/Measure'
 import { MeasureEditor } from './components/MeasureEditor'
 import { ExerciseSettingsModal } from './components/ExerciseSettingsModal'
+import { AudioCalibrationModal } from './components/AudioCalibrationModal'
 import { notesToSteps, notesToStrokes, stepsToNotes } from './domain/measureSteps'
 import type { StepKind } from './domain/measureSteps'
 import { TimingDetail } from './components/TimingDetail'
@@ -58,11 +60,13 @@ function App() {
     const [isLooping, setIsLooping] = useState(false)
     const [settingsOpen, setSettingsOpen] = useState(false)
     const [tempoOpen, setTempoOpen] = useState(false)
+    const [calibrationOpen, setCalibrationOpen] = useState(false)
     const [activeBpm, setActiveBpm] = useState<number | null>(null)
     const [editorMeasure, setEditorMeasure] = useState<number | null>(null)
     const [editorSteps, setEditorSteps] = useState<StepKind[]>([])
     const [editorStrokes, setEditorStrokes] = useState<(PickStroke | undefined)[]>([])
     const cleanup = useRef<null | (() => void)>(null)
+    const recordingRequest = useRef(0)
     const metronome = useRef(new Metronome())
     const startedAt = useRef(0)
     const timer = useRef<number | null>(null)
@@ -85,9 +89,12 @@ function App() {
     const displayedBpm = activeBpm ?? bpm
     const beatMs = 60000 / displayedBpm
     const measureMs = beatMs * spec.beats
+    const countInBeats = Number(signature.split('/')[0])
+    const exerciseBeats = spec.beats * measures
 
     useEffect(
         () => () => {
+            recordingRequest.current++
             cleanup.current?.()
             metronome.current.stop()
             if (timer.current) clearTimeout(timer.current)
@@ -130,6 +137,7 @@ function App() {
         setSettingsOpen(false)
     }
     function reset() {
+        recordingRequest.current++
         stopPreview()
         cleanup.current?.()
         cleanup.current = null
@@ -143,6 +151,7 @@ function App() {
         setActiveBpm(null)
         tempoRun.current = null
         activeRunMs.current = 0
+        startedAt.current = 0
     }
     function openMeasureEditor() {
         if (selectedMeasure === null || state === 'count-in' || state === 'playing') return
@@ -287,6 +296,8 @@ function App() {
     }
     async function startExercise() {
         reset()
+        const request = ++recordingRequest.current
+        setCalibrationOpen(false)
         setTempoOpen(false)
         tempoRun.current = {
             bpm,
@@ -298,37 +309,63 @@ function App() {
         }
         setActiveBpm(bpm)
         setState('count-in')
-        metronome.current.start(beatMs, (beat) => {
-            const displayedBeat = beat + 1
-            setCountInBeat(displayedBeat)
-            if (displayedBeat === 4) {
-                metronome.current.stop()
-                beginRecording()
-            }
-        })
-    }
-    async function beginRecording() {
         try {
-            cleanup.current = await listenForOnsets((strength) => {
-                const time = performance.now() - startedAt.current
-                if (time < activeRunMs.current) {
-                    setHits((previous) => [...previous, { time, strength }])
-                }
-            })
-            startedAt.current = currentTime()
-            setState('playing')
-            showProgress(startedAt.current, 0, measures)
+            const calibration = getAudioCalibration()
+            const stopListening = await listenForOnsets(
+                (strength) => {
+                    const time =
+                        performance.now() - startedAt.current - (calibration?.latencyMs ?? 0)
+                    if (startedAt.current > 0 && time < activeRunMs.current) {
+                        setHits((previous) => [...previous, { time, strength }])
+                    }
+                },
+                {
+                    deviceId: calibration?.deviceId || undefined,
+                    detector: calibration?.detector,
+                    isDetecting: () => startedAt.current > 0,
+                },
+            )
+            if (request !== recordingRequest.current) {
+                stopListening()
+                return
+            }
+            cleanup.current = stopListening
             metronome.current.start(
                 () => 60000 / (tempoRun.current?.bpm ?? bpm),
-                () => undefined,
+                (beat) => {
+                    if (request !== recordingRequest.current) return
+                    if (beat < countInBeats) {
+                        setCountInBeat(beat + 1)
+                    } else if (beat === countInBeats) {
+                        beginRecording(request)
+                    }
+                    if (beat - countInBeats === exerciseBeats - 1) {
+                        metronome.current.stop()
+                    }
+                },
             )
-            scheduleExerciseEnd(tempoRun.current?.bpm ?? bpm)
         } catch {
+            if (request !== recordingRequest.current) return
             setState('ready')
             alert('Microphone permission is needed to listen to your playing.')
         }
     }
-    function scheduleExerciseEnd(runBpm: number) {
+    function beginRecording(request: number) {
+        startedAt.current = currentTime()
+        setState('playing')
+        showProgress(startedAt.current, 0, measures)
+        scheduleExerciseEnd(tempoRun.current?.bpm ?? bpm, request)
+    }
+    function startWorkingMetronome(request: number) {
+        metronome.current.start(
+            () => 60000 / (tempoRun.current?.bpm ?? bpm),
+            (beat) => {
+                if (request !== recordingRequest.current) return
+                if (beat === exerciseBeats - 1) metronome.current.stop()
+            },
+        )
+    }
+    function scheduleExerciseEnd(runBpm: number, request: number) {
         const runMs = (60000 / runBpm) * spec.beats * measures
         activeRunMs.current = runMs
         timer.current = window.setTimeout(() => {
@@ -337,13 +374,15 @@ function App() {
                 nextBpm !== null &&
                 (isLoopingRef.current || tempoRun.current?.program === 'increase-and-return')
             ) {
+                if (request !== recordingRequest.current) return
                 setHits([])
                 startedAt.current = currentTime()
                 setActiveMeasure(0)
                 setActiveSlot(-1)
                 setActiveBpm(nextBpm)
                 showProgress(startedAt.current, 0, measures, (60000 / nextBpm) * spec.beats)
-                scheduleExerciseEnd(nextBpm)
+                startWorkingMetronome(request)
+                scheduleExerciseEnd(nextBpm, request)
                 return
             }
             metronome.current.stop()
@@ -394,6 +433,16 @@ function App() {
                     {signature} <span className="px-1 text-slate-500">·</span> {measures} measures
                 </h1>
                 <div className="ml-auto flex items-center gap-2">
+                    <button
+                        className="header-control"
+                        type="button"
+                        onClick={() => setCalibrationOpen(true)}
+                        aria-label="Открыть калибровку аудиовхода"
+                        aria-expanded={calibrationOpen}
+                    >
+                        <FontAwesomeIcon icon={faMicrophone} />
+                        <span>Калибровка</span>
+                    </button>
                     <button
                         className="header-control"
                         type="button"
@@ -555,7 +604,7 @@ function App() {
                                 {countInBeat || 1}
                             </strong>
                             <span className="count-in-dots" aria-hidden="true">
-                                {Array.from({ length: 4 }, (_, index) => (
+                                {Array.from({ length: countInBeats }, (_, index) => (
                                     <i
                                         className={index < countInBeat ? 'is-complete' : ''}
                                         key={index}
@@ -677,6 +726,9 @@ function App() {
                         setEditorMeasure(null)
                     }}
                 />
+            ) : null}
+            {calibrationOpen ? (
+                <AudioCalibrationModal onClose={() => setCalibrationOpen(false)} />
             ) : null}
             {settingsOpen ? (
                 <ExerciseSettingsModal

@@ -14,6 +14,7 @@ import {
     Voice,
 } from 'vexflow'
 import type { ExerciseNote, TimeSignature } from '../types'
+import type { NoteFeedback } from '../domain/noteFeedback'
 
 type Props = {
     measureNumber: number
@@ -23,6 +24,7 @@ type Props = {
     width: number
     scale: number
     activeSlot: number
+    noteFeedback?: Map<string, NoteFeedback>
 }
 
 export function EngravedMeasure({
@@ -33,6 +35,7 @@ export function EngravedMeasure({
     width,
     scale,
     activeSlot,
+    noteFeedback,
 }: Props) {
     const element = useRef<HTMLDivElement>(null)
 
@@ -59,14 +62,30 @@ export function EngravedMeasure({
                 !note.isRest &&
                 activeSlot >= note.position &&
                 activeSlot < note.position + note.duration
+            const feedback = noteFeedback?.get(note.id)
+            const noteColor = note.isRest
+                ? '#94a3b8'
+                : feedback
+                  ? {
+                        pending: '#94a3b8',
+                        accurate: '#4ade80',
+                        'slightly-off': '#facc15',
+                        off: '#f87171',
+                    }[feedback]
+                  : isActive
+                    ? '#22d3ee'
+                    : '#818cf8'
             staveNote.setStyle({
-                fillStyle: isActive ? '#22d3ee' : '#818cf8',
-                strokeStyle: isActive ? '#22d3ee' : '#818cf8',
+                fillStyle: noteColor,
+                strokeStyle: noteColor,
             })
             if (notation.dotted) Dot.buildAndAttach([staveNote], { all: true })
             if (note.stroke) {
                 const stroke = new Annotation(note.stroke === 'down' ? '↓' : '↑')
                 stroke.setVerticalJustification(Annotation.VerticalJustify.TOP)
+                // Keep picking directions instantly distinguishable in compact scores.
+                const strokeColor = note.stroke === 'down' ? '#f3bb56' : '#78c7b2'
+                stroke.setStyle({ fillStyle: strokeColor, strokeStyle: strokeColor })
                 staveNote.addModifier(stroke, 0)
             }
             return staveNote
@@ -84,7 +103,8 @@ export function EngravedMeasure({
             ...beamsWithoutTriplets(notes, tickables),
             ...tripletGroups.map((group) => new Beam(group, false)),
         ]
-        beams.forEach((beam) => beam.setStyle({ fillStyle: '#818cf8', strokeStyle: '#818cf8' }))
+        const beamColor = noteFeedback ? '#94a3b8' : '#818cf8'
+        beams.forEach((beam) => beam.setStyle({ fillStyle: beamColor, strokeStyle: beamColor }))
         new Formatter().joinVoices([voice]).format([voice], width - 18)
         voice.draw(context, stave)
         beams.forEach((beam) => beam.setContext(context).drawWithStyle())
@@ -136,7 +156,7 @@ export function EngravedMeasure({
             svg.style.left = '0'
             svg.style.top = `${(height - scaledHeight) / 2}px`
         }
-    }, [activeSlot, measureNumber, notes, scale, showMeasureNumber, signature, width])
+    }, [activeSlot, measureNumber, noteFeedback, notes, scale, showMeasureNumber, signature, width])
 
     return <div className="vexflow-measure" ref={element} aria-hidden="true" />
 }
