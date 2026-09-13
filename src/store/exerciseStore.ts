@@ -5,6 +5,8 @@ import type { ExerciseNote, PickStroke, TimeSignature } from '../types'
 
 const STORAGE_KEY = 'taktcontrol.exercise.v1'
 const LEGACY_STORAGE_KEY = 'rithme.exercise.v1'
+export const MIN_BPM = 45
+export const MAX_BPM = 180
 
 type StoredExercise = {
     measures: number
@@ -37,6 +39,11 @@ function isStoredExercise(value: unknown): value is StoredExercise {
     )
 }
 
+function normalizeBpm(value: number) {
+    if (!Number.isFinite(value)) return defaults().bpm
+    return Math.min(MAX_BPM, Math.max(MIN_BPM, Math.round(value)))
+}
+
 function loadExercise(): StoredExercise {
     if (typeof window === 'undefined') return defaults()
     try {
@@ -45,7 +52,9 @@ function loadExercise(): StoredExercise {
                 window.localStorage.getItem(LEGACY_STORAGE_KEY) ??
                 'null',
         )
-        return isStoredExercise(saved) ? withStrokes(saved) : defaults()
+        return isStoredExercise(saved)
+            ? withStrokes({ ...saved, bpm: normalizeBpm(saved.bpm) })
+            : defaults()
     } catch {
         return defaults()
     }
@@ -66,6 +75,10 @@ function withStrokes(stored: StoredExercise): StoredExercise {
 }
 
 export const exerciseStore = proxy<StoredExercise>(loadExercise())
+
+export function setBpm(bpm: number) {
+    exerciseStore.bpm = normalizeBpm(bpm)
+}
 
 export function setGenerationOptions(options: GenerationOptions) {
     exerciseStore.generationOptions = options

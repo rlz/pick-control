@@ -21,7 +21,10 @@ import type { GenerationOptions } from './domain/exercise'
 import {
     exerciseStore,
     generateExerciseWithSettings,
+    MAX_BPM,
+    MIN_BPM,
     replaceMeasureNotes,
+    setBpm,
     setPresetExercise,
 } from './store/exerciseStore'
 import type { ExerciseNote, PickStroke, PlayerHit, TimeSignature } from './types'
@@ -306,7 +309,7 @@ function App() {
         hits.filter((hit) => hit.time >= i * measureMs && hit.time < (i + 1) * measureMs)
     return (
         <main className="grid h-dvh grid-rows-[3.5rem_minmax(0,1fr)_5.5rem] overflow-hidden bg-slate-950 text-slate-100 md:grid-rows-[4rem_minmax(0,1fr)_6rem]">
-            <header className="relative flex items-center border-b border-slate-800 bg-slate-900/90 px-5 backdrop-blur md:px-7">
+            <header className="relative z-30 flex items-center overflow-visible border-b border-slate-800 bg-slate-900/90 px-5 backdrop-blur md:px-7">
                 <div className="flex items-center gap-2 text-lg font-bold tracking-tight text-indigo-300">
                     <span className="grid size-8 place-items-center rounded-lg bg-indigo-400/15 text-xl">
                         ◒
@@ -327,33 +330,34 @@ function App() {
                         <FontAwesomeIcon icon={faGear} />
                         <span>Exercise</span>
                     </button>
-                    <button
-                        className="header-control"
-                        type="button"
-                        onClick={() => setTempoOpen((open) => !open)}
-                        aria-expanded={tempoOpen}
-                        aria-label="Change tempo"
-                    >
-                        <span className="tempo-value">{bpm}</span>
-                        <span>BPM</span>
-                    </button>
-                </div>
-                {tempoOpen ? (
-                    <div className="tempo-popover">
-                        <label>
-                            Tempo <output>{bpm} BPM</output>
-                            <input
-                                type="range"
-                                min="45"
-                                max="180"
-                                value={bpm}
-                                onChange={(event) =>
-                                    (exerciseStore.bpm = Number(event.target.value))
-                                }
-                            />
-                        </label>
+                    <div className="tempo-control">
+                        <button
+                            className="header-control"
+                            type="button"
+                            onClick={() => setTempoOpen((open) => !open)}
+                            aria-expanded={tempoOpen}
+                            aria-label="Change tempo"
+                        >
+                            <span className="tempo-value">{bpm}</span>
+                            <span>BPM</span>
+                        </button>
+                        {tempoOpen ? (
+                            <div className="tempo-popover">
+                                <label>
+                                    Tempo <output>{bpm} BPM</output>
+                                    <input
+                                        type="range"
+                                        min={MIN_BPM}
+                                        max={MAX_BPM}
+                                        step="1"
+                                        value={bpm}
+                                        onChange={(event) => setBpm(Number(event.target.value))}
+                                    />
+                                </label>
+                            </div>
+                        ) : null}
                     </div>
-                ) : null}
+                </div>
             </header>
             <div className="app-body grid min-h-0 overflow-hidden">
                 <section className="relative grid min-h-0 min-w-0 overflow-hidden bg-slate-950">

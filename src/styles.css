@@ -108,11 +108,12 @@ button:disabled {
 }
 .header-control:hover { border-color: #818cf8; }
 .tempo-value { color: #a5b4fc; font-family: var(--font-mono); }
+.tempo-control { position: relative; }
 .tempo-popover {
     position: absolute;
-    z-index: 30;
+    z-index: 1;
     top: calc(100% + 0.5rem);
-    right: 1.25rem;
+    right: 0;
     width: min(18rem, calc(100vw - 2rem));
     border: 1px solid #334155;
     border-radius: 0.75rem;
