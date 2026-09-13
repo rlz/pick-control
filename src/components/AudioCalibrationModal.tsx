@@ -10,6 +10,8 @@ import {
     type DetectedAttack,
     type DetectorParameters,
 } from '../audio'
+import { analyseCalibrationRecording } from '../audio/calibrationAnalysis'
+import { OnsetDetector } from '../audio/detector'
 
 type InputDevice = Pick<MediaDeviceInfo, 'deviceId' | 'label'>
 
@@ -23,13 +25,15 @@ type Props = {
     onClose: () => void
 }
 
-type CalibrationState = 'idle' | 'count-in' | 'running' | 'complete'
+type CalibrationState = 'idle' | 'count-in' | 'running' | 'analysing' | 'complete'
 
 type CalibrationSummary = {
     matched: number
+    missed: number
     falsePositives: number
     latencyMs: number
     saved: boolean
+    error?: string
 }
 
 const meterFloorDb = -60
@@ -40,9 +44,12 @@ const countInBeats = 4
 const initialMatchWindowMs = 300
 const alignedMatchWindowMs = 220
 const calibrationDetector = {
-    minimumAttackStrength: 0.00035,
-    baselineRatio: 1.25,
-    riseRatio: 1.05,
+    // Be deliberately permissive while learning the player's quietest useful
+    // attack. The saved profile below is calculated from beats that actually
+    // matched the metronome, so noise does not become a reference level.
+    minimumAttackStrength: 0.00002,
+    baselineRatio: 1.001,
+    riseRatio: 1.001,
     minIntervalMs: 70,
 }
 
@@ -62,11 +69,7 @@ function median(values: number[]) {
 
 function percentile(values: number[], position: number) {
     const sorted = [...values].sort((left, right) => left - right)
-    return sorted[Math.min(sorted.length - 1, Math.floor((sorted.length - 1) * position))]
-}
-
-function clamp(value: number, minimum: number, maximum: number) {
-    return Math.min(maximum, Math.max(minimum, value))
+    return sorted[Math.floor((sorted.length - 1) * position)]
 }
 
 export function AudioCalibrationModal({ onClose }: Props) {
@@ -84,8 +87,13 @@ export function AudioCalibrationModal({ onClose }: Props) {
     const eventId = useRef(0)
     const metronome = useRef(new Metronome())
     const calibrationRunning = useRef(false)
+    const calibrationActive = useRef(false)
+    const resetDetector = useRef(false)
     const beatTimes = useRef<number[]>([])
-    const attacks = useRef<DetectedAttack[]>([])
+    const audioStream = useRef<MediaStream | null>(null)
+    const recorder = useRef<MediaRecorder | null>(null)
+    const recordingChunks = useRef<Blob[]>([])
+    const recordingStartedAt = useRef(0)
     const finishTimer = useRef<number | null>(null)
     const detector = useRef<Partial<DetectorParameters>>(
         savedCalibration?.detector ?? calibrationDetector,
@@ -98,9 +106,16 @@ export function AudioCalibrationModal({ onClose }: Props) {
         void listenForOnsets(() => undefined, {
             deviceId: deviceId || undefined,
             getDetector: () => detector.current,
+            onStream: (stream) => {
+                audioStream.current = stream
+            },
+            consumeResetDetector: () => {
+                if (!resetDetector.current) return false
+                resetDetector.current = false
+                return true
+            },
             onAttack: (attack) => {
                 if (!active) return
-                if (calibrationRunning.current) attacks.current.push(attack)
                 setEvents((previous) =>
                     [
                         {
@@ -112,6 +127,7 @@ export function AudioCalibrationModal({ onClose }: Props) {
                     ].slice(0, 50),
                 )
             },
+            isDetecting: () => !calibrationActive.current,
             onLevel: (nextLevel) => active && setLevel(nextLevel),
         })
             .then((stop) => {
@@ -129,14 +145,19 @@ export function AudioCalibrationModal({ onClose }: Props) {
                     .filter((device) => device.kind === 'audioinput')
                     .map(({ deviceId: id, label }) => ({ deviceId: id, label }))
                 setDevices(inputs)
+                if (deviceId && !inputs.some((input) => input.deviceId === deviceId)) {
+                    setDeviceId('')
+                }
             })
             .catch(() => active && setStatus('error'))
 
         return () => {
             active = false
             calibrationRunning.current = false
+            calibrationActive.current = false
             activeMetronome.stop()
             if (finishTimer.current !== null) clearTimeout(finishTimer.current)
+            if (recorder.current?.state === 'recording') recorder.current.stop()
             cleanup.current?.()
             cleanup.current = null
         }
@@ -160,26 +181,45 @@ export function AudioCalibrationModal({ onClose }: Props) {
         return () => cancelAnimationFrame(frame)
     }, [])
 
-    function finishCalibration() {
+    async function finishCalibration() {
         calibrationRunning.current = false
         metronome.current.stop()
+        setCalibrationState('analysing')
+        const activeRecorder = recorder.current
+        if (activeRecorder?.state === 'recording') {
+            await new Promise<void>((resolve) => {
+                activeRecorder.addEventListener('stop', () => resolve(), { once: true })
+                activeRecorder.stop()
+            })
+        }
+        calibrationActive.current = false
         const firstBeat = beatTimes.current[0] ?? 0
         const lastBeat = beatTimes.current.at(-1) ?? 0
-        const candidates = attacks.current.filter(
-            (attack) =>
-                attack.time >= firstBeat - initialMatchWindowMs &&
-                attack.time <= lastBeat + initialMatchWindowMs,
+        const recording = new Blob(recordingChunks.current, {
+            type: recorder.current?.mimeType || 'audio/webm',
+        })
+        const recordedFrames = recording.size
+            ? await analyseCalibrationRecording(recording, recordingStartedAt.current)
+            : []
+        const recordingWindow = recordedFrames.filter(
+            (frame) =>
+                frame.time >= firstBeat - initialMatchWindowMs &&
+                frame.time <= lastBeat + initialMatchWindowMs,
         )
         // Players commonly anticipate a click by a few milliseconds. Associate
         // each detected attack with only one metronome beat, then centre the
         // stricter pass around the measured latency instead of assuming the
         // attack must happen after the click.
-        const matchBeats = (latencyMs: number, windowMs: number) => {
+        const matchBeats = (
+            detected: DetectedAttack[],
+            latencyMs: number,
+            windowMs: number,
+        ) => {
             const usedAttackTimes = new Set<number>()
             return beatTimes.current
                 .map((beatTime) => {
                     const expectedTime = beatTime + latencyMs
-                    const matches = candidates.filter(
+                    const matches = detected.filter(
                         (attack) =>
                             !usedAttackTimes.has(attack.time) &&
                             Math.abs(attack.time - expectedTime) <= windowMs,
@@ -200,68 +240,65 @@ export function AudioCalibrationModal({ onClose }: Props) {
                 )
         }
 
-        const roughMatches = matchBeats(0, initialMatchWindowMs)
-        const initialLatency = roughMatches.length
-            ? median(roughMatches.map(({ attack, beatTime }) => attack.time - beatTime))
-            : 0
-        const selected = matchBeats(initialLatency, alignedMatchWindowMs)
-        const latencyMs = selected.length
-            ? Math.round(median(selected.map(({ attack, beatTime }) => attack.time - beatTime)))
-            : 0
-        const aligned = selected.filter(({ attack, beatTime }) => {
-            return Math.abs(attack.time - beatTime - latencyMs) < alignedMatchWindowMs
-        })
-        const selectedIds = new Set(aligned.map(({ attack }) => attack.time))
-        const rejected = candidates.filter((attack) => !selectedIds.has(attack.time))
-        const falsePositives = rejected.length
-        const saved = aligned.length >= 10
+        const thresholds = (get: (frame: { attackStrength: number }) => number, minimum: number) =>
+            recordingWindow.length
+                ? [0.08, 0.25, 0.45, 0.65, 0.82].map((point) =>
+                      Math.max(minimum, percentile(recordingWindow.map(get), point) * 0.98),
+                  )
+                : [minimum]
+        const profiles = thresholds((attack) => attack.attackStrength, 0.00002).flatMap(
+            (minimumAttackStrength) =>
+                [1.001, 1.05, 1.1, 1.2, 1.35].flatMap((baselineRatio) =>
+                    [1.001, 1.03, 1.07, 1.15, 1.3].flatMap((riseRatio) =>
+                        [100, 160, 220, 300].map((minIntervalMs) => ({
+                            minimumAttackStrength,
+                            baselineRatio,
+                            riseRatio,
+                            minIntervalMs,
+                        })),
+                    ),
+                ),
+        )
+        const evaluate = (profile: DetectorParameters) => {
+            const sharedDetector = new OnsetDetector()
+            const detected = recordedFrames.flatMap((frame) => {
+                const attack = sharedDetector.process(frame, profile)
+                if (!attack || attack.time < firstBeat - initialMatchWindowMs || attack.time > lastBeat + initialMatchWindowMs) {
+                    return []
+                }
+                return [attack]
+            })
+            const rough = matchBeats(detected, 0, initialMatchWindowMs)
+            const latency = rough.length
+                ? median(rough.map(({ attack, beatTime }) => attack.time - beatTime))
+                : 0
+            const aligned = matchBeats(detected, latency, alignedMatchWindowMs)
+            const matchedIds = new Set(aligned.map(({ attack }) => attack.time))
+            return {
+                profile,
+                aligned,
+                latency,
+                falsePositives: detected.filter((attack) => !matchedIds.has(attack.time)).length,
+            }
+        }
+        const best = profiles.map(evaluate).reduce(
+            (winner, attempt) =>
+                attempt.aligned.length * 100 - attempt.falsePositives * 30 >
+                winner.aligned.length * 100 - winner.falsePositives * 30
+                    ? attempt
+                    : winner,
+            evaluate(calibrationDetector),
+        )
+        const latencyMs = Math.round(best.latency)
+        const matched = best.aligned.length
+        const falsePositives = best.falsePositives
+        const saved = matched === calibrationBeats && falsePositives === 0
 
         if (saved) {
-            const attackFloor = Math.max(
-                percentile(
-                    aligned.map(({ attack }) => attack.attackStrength),
-                    0.15,
-                ) * 0.6,
-                rejected.length
-                    ? percentile(
-                          rejected.map((attack) => attack.attackStrength),
-                          0.9,
-                      ) * 1.05
-                    : 0,
-            )
-            const baselineRatio = Math.max(
-                percentile(
-                    aligned.map(({ attack }) => attack.baselineRatio),
-                    0.15,
-                ) * 0.78,
-                rejected.length
-                    ? percentile(
-                          rejected.map((attack) => attack.baselineRatio),
-                          0.9,
-                      ) * 1.05
-                    : 0,
-            )
-            const riseRatio = Math.max(
-                percentile(
-                    aligned.map(({ attack }) => attack.riseRatio),
-                    0.15,
-                ) * 0.78,
-                rejected.length
-                    ? percentile(
-                          rejected.map((attack) => attack.riseRatio),
-                          0.9,
-                      ) * 1.05
-                    : 0,
-            )
             const calibration = {
                 deviceId,
                 latencyMs,
-                detector: {
-                    minimumAttackStrength: clamp(attackFloor, 0.0002, 0.02),
-                    baselineRatio: clamp(baselineRatio, 1.15, 2.2),
-                    riseRatio: clamp(riseRatio, 1.05, 1.8),
-                    minIntervalMs: 160,
-                },
+                detector: best.profile,
                 calibratedAt: Date.now(),
             }
             saveAudioCalibration(calibration)
@@ -269,7 +306,13 @@ export function AudioCalibrationModal({ onClose }: Props) {
             setSavedCalibration(calibration)
         }
 
-        setSummary({ matched: aligned.length, falsePositives, latencyMs, saved })
+        setSummary({
+            matched,
+            missed: calibrationBeats - matched,
+            falsePositives,
+            latencyMs,
+            saved,
+        })
         setCalibrationState('complete')
     }
 
@@ -277,9 +320,34 @@ export function AudioCalibrationModal({ onClose }: Props) {
         if (status !== 'ready') return
         setEvents([])
         setSummary(null)
-        attacks.current = []
+        recordingChunks.current = []
         beatTimes.current = []
         detector.current = calibrationDetector
+        resetDetector.current = true
+        calibrationActive.current = true
+        const stream = audioStream.current
+        if (!stream || typeof MediaRecorder === 'undefined') {
+            calibrationActive.current = false
+            setSummary({
+                matched: 0,
+                missed: calibrationBeats,
+                falsePositives: 0,
+                latencyMs: 0,
+                saved: false,
+                error: !stream
+                    ? 'Аудиовход ещё не готов. Подождите появления уровня сигнала и повторите.'
+                    : 'Этот браузер не поддерживает запись, нужную для калибровки.',
+            })
+            setCalibrationState('complete')
+            return
+        }
+        const nextRecorder = new MediaRecorder(stream)
+        nextRecorder.addEventListener('dataavailable', (event) => {
+            if (event.data.size) recordingChunks.current.push(event.data)
+        })
+        recorder.current = nextRecorder
+        recordingStartedAt.current = performance.now()
+        nextRecorder.start()
         calibrationRunning.current = false
         setCountInBeat(0)
         setCalibrationState('count-in')
@@ -297,7 +365,7 @@ export function AudioCalibrationModal({ onClose }: Props) {
             beatTimes.current.push(performance.now())
             if (calibrationBeat === calibrationBeats - 1) {
                 metronome.current.stop()
-                finishTimer.current = window.setTimeout(finishCalibration, 500)
+                finishTimer.current = window.setTimeout(() => void finishCalibration(), 500)
             }
         })
     }
@@ -391,50 +459,60 @@ export function AudioCalibrationModal({ onClose }: Props) {
                         </div>
                     ) : null}
                     <div className="detection-log" aria-live="polite">
-                        <div className="detection-log-heading">
-                            <span>Удары за последние 4 секунды</span>
-                            <span
-                                className={
-                                    recentlyDetected ? 'detector-status active' : 'detector-status'
-                                }
-                            >
-                                <i /> {recentlyDetected ? 'Удар определён' : 'Ожидание удара'}
-                            </span>
-                        </div>
-                        <div
-                            className="detection-timeline"
-                            role="img"
-                            aria-label="Временная шкала распознанных ударов; новые появляются справа и движутся влево"
-                        >
-                            <div className="detection-timeline-axis" aria-hidden="true">
-                                {[4, 3, 2, 1, 0].map((seconds) => (
-                                    <span key={seconds} style={{ left: `${(4 - seconds) * 25}%` }}>
-                                        {seconds ? `−${seconds} с` : 'сейчас'}
+                        {calibrationState === 'idle' || calibrationState === 'complete' ? (
+                            <>
+                                <div className="detection-log-heading">
+                                    <span>Удары за последние 4 секунды</span>
+                                    <span
+                                        className={
+                                            recentlyDetected
+                                                ? 'detector-status active'
+                                                : 'detector-status'
+                                        }
+                                    >
+                                        <i />{' '}
+                                        {recentlyDetected ? 'Удар определён' : 'Ожидание удара'}
                                     </span>
-                                ))}
-                            </div>
-                            <div className="detection-timeline-track">
-                                {[0, 25, 50, 75, 100].map((position) => (
-                                    <i key={position} style={{ left: `${position}%` }} />
-                                ))}
-                                {visibleEvents.map((event) => (
-                                    <b
-                                        className="detection-timeline-hit"
-                                        key={event.id}
-                                        style={{
-                                            left: `${Math.max(
-                                                0,
-                                                100 -
-                                                    ((timelineNow - event.time) /
-                                                        timelineWindowMs) *
-                                                        100,
-                                            )}%`,
-                                        }}
-                                        title={`Удар: ${event.strength.toFixed(3)}`}
-                                    />
-                                ))}
-                            </div>
-                        </div>
+                                </div>
+                                <div
+                                    className="detection-timeline"
+                                    role="img"
+                                    aria-label="Временная шкала распознанных ударов; новые появляются справа и движутся влево"
+                                >
+                                    <div className="detection-timeline-axis" aria-hidden="true">
+                                        {[4, 3, 2, 1, 0].map((seconds) => (
+                                            <span
+                                                key={seconds}
+                                                style={{ left: `${(4 - seconds) * 25}%` }}
+                                            >
+                                                {seconds ? `−${seconds} с` : 'сейчас'}
+                                            </span>
+                                        ))}
+                                    </div>
+                                    <div className="detection-timeline-track">
+                                        {[0, 25, 50, 75, 100].map((position) => (
+                                            <i key={position} style={{ left: `${position}%` }} />
+                                        ))}
+                                        {visibleEvents.map((event) => (
+                                            <b
+                                                className="detection-timeline-hit"
+                                                key={event.id}
+                                                style={{
+                                                    left: `${Math.max(
+                                                        0,
+                                                        100 -
+                                                            ((timelineNow - event.time) /
+                                                                timelineWindowMs) *
+                                                                100,
+                                                    )}%`,
+                                                }}
+                                                title={`Удар: ${event.strength.toFixed(3)}`}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                            </>
+                        ) : null}
                         {calibrationState === 'count-in' ? (
                             <div className="calibration-count-in" aria-live="assertive">
                                 <span>Приготовьтесь</span>
@@ -453,6 +531,8 @@ export function AudioCalibrationModal({ onClose }: Props) {
                             <p className="calibration-progress">
                                 Калибровка идёт: держите ровный пульс.
                             </p>
+                        ) : calibrationState === 'analysing' ? (
+                            <p className="calibration-progress">Анализируем запись…</p>
                         ) : summary ? (
                             <div
                                 className={
@@ -464,7 +544,8 @@ export function AudioCalibrationModal({ onClose }: Props) {
                                 <span>
                                     {summary.saved
                                         ? `Ритм найден: ${summary.matched}/${calibrationBeats} ударов.`
-                                        : `Недостаточно совпадений: ${summary.matched}/${calibrationBeats}.`}
+                                        : summary.error ||
+                                          `Калибровка не прошла: ${summary.matched}/${calibrationBeats} ударов; пропусков: ${summary.missed}.`}
                                 </span>
                                 <span>Задержка: {summary.latencyMs} мс</span>
                                 <span>Лишних атак: {summary.falsePositives}</span>
