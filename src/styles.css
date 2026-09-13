@@ -121,9 +121,88 @@ button:disabled {
     background: #0f172a;
     box-shadow: 0 18px 48px #00000080;
 }
-.tempo-popover label { display: grid; gap: 0.55rem; }
-.tempo-popover output { color: #a5b4fc; font-size: 1.1rem; font-weight: 700; }
-.tempo-popover input { width: 100%; accent-color: #818cf8; }
+.tempo-popover {
+    display: grid;
+    gap: 0.9rem;
+}
+.tempo-popover label {
+    display: grid;
+    gap: 0.55rem;
+}
+.tempo-popover output {
+    color: #a5b4fc;
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+.tempo-popover input[type='range'] {
+    width: 100%;
+    appearance: none;
+    height: 1.25rem;
+    background: transparent;
+}
+.tempo-popover input[type='range']::-webkit-slider-runnable-track {
+    box-sizing: border-box;
+    height: 0.5rem;
+    border: 1px solid #767676;
+    background: linear-gradient(
+        to right,
+        #818cf8 0 var(--range-value-position),
+        #4a4a4a var(--range-value-position) 100%
+    );
+    border-radius: 999px;
+}
+.tempo-popover input[type='range']::-webkit-slider-thumb {
+    width: 1.25rem;
+    height: 1.25rem;
+    margin-top: -0.375rem;
+    appearance: none;
+    border: 0;
+    border-radius: 50%;
+    background: #818cf8;
+}
+.tempo-popover input[type='range']::-moz-range-track {
+    box-sizing: border-box;
+    height: 0.5rem;
+    border: 1px solid #767676;
+    background: linear-gradient(
+        to right,
+        #818cf8 0 var(--range-value-position),
+        #4a4a4a var(--range-value-position) 100%
+    );
+    border-radius: 999px;
+}
+.tempo-popover input[type='range']::-moz-range-thumb {
+    width: 1.25rem;
+    height: 1.25rem;
+    border: 0;
+    border-radius: 50%;
+    background: #818cf8;
+}
+.tempo-popover input.tempo-ceiling-slider::-webkit-slider-runnable-track {
+    background: linear-gradient(
+        to right,
+        #334155 0 var(--tempo-minimum-position),
+        #818cf8 var(--tempo-minimum-position) var(--range-value-position),
+        #4a4a4a var(--range-value-position) 100%
+    );
+}
+.tempo-popover input.tempo-ceiling-slider::-moz-range-track {
+    background: linear-gradient(
+        to right,
+        #334155 0 var(--tempo-minimum-position),
+        #818cf8 var(--tempo-minimum-position) var(--range-value-position),
+        #4a4a4a var(--range-value-position) 100%
+    );
+}
+.tempo-popover select {
+    width: 100%;
+    border: 1px solid #334155;
+    border-radius: 0.5rem;
+    padding: 0.55rem 0.65rem;
+    color: #e2e8f0;
+    background: #1e293b;
+    text-transform: none;
+}
 .secondary {
     border: 1px solid #334155;
     border-radius: 0.5rem;

@@ -7,12 +7,19 @@ const STORAGE_KEY = 'taktcontrol.exercise.v1'
 const LEGACY_STORAGE_KEY = 'rithme.exercise.v1'
 export const MIN_BPM = 45
 export const MAX_BPM = 180
+export const MIN_TEMPO_STEP = 1
+export const MAX_TEMPO_STEP = 20
+
+export type TempoProgram = 'steady' | 'increase' | 'increase-and-return'
 
 type StoredExercise = {
     measures: number
     generationOptions: GenerationOptions
     signature: TimeSignature
     bpm: number
+    tempoProgram: TempoProgram
+    tempoStep: number
+    tempoCeiling: number
     exercise: ExerciseNote[]
 }
 
@@ -21,6 +28,9 @@ const defaults = (): StoredExercise => ({
     generationOptions: { ...defaultGenerationOptions },
     signature: '4/4',
     bpm: 92,
+    tempoProgram: 'steady',
+    tempoStep: 4,
+    tempoCeiling: 120,
     exercise: generateExercise(4, defaultGenerationOptions, '4/4'),
 })
 
@@ -34,7 +44,6 @@ function isStoredExercise(value: unknown): value is StoredExercise {
         (candidate.signature === '4/4' ||
             candidate.signature === '3/4' ||
             candidate.signature === '6/8') &&
-        typeof candidate.bpm === 'number' &&
         Array.isArray(candidate.exercise)
     )
 }
@@ -42,6 +51,15 @@ function isStoredExercise(value: unknown): value is StoredExercise {
 function normalizeBpm(value: number) {
     if (!Number.isFinite(value)) return defaults().bpm
     return Math.min(MAX_BPM, Math.max(MIN_BPM, Math.round(value)))
+}
+
+function normalizeTempoStep(value: number) {
+    if (!Number.isFinite(value)) return defaults().tempoStep
+    return Math.min(MAX_TEMPO_STEP, Math.max(MIN_TEMPO_STEP, Math.round(value)))
+}
+
+function normalizeTempoProgram(value: unknown): TempoProgram {
+    return value === 'increase' || value === 'increase-and-return' ? value : 'steady'
 }
 
 function loadExercise(): StoredExercise {
@@ -53,7 +71,13 @@ function loadExercise(): StoredExercise {
                 'null',
         )
         return isStoredExercise(saved)
-            ? withStrokes({ ...saved, bpm: normalizeBpm(saved.bpm) })
+            ? withStrokes({
+                  ...saved,
+                  bpm: normalizeBpm(saved.bpm ?? defaults().bpm),
+                  tempoProgram: normalizeTempoProgram(saved.tempoProgram),
+                  tempoStep: normalizeTempoStep(saved.tempoStep ?? defaults().tempoStep),
+                  tempoCeiling: normalizeBpm(saved.tempoCeiling ?? defaults().tempoCeiling),
+              })
             : defaults()
     } catch {
         return defaults()
@@ -78,6 +102,19 @@ export const exerciseStore = proxy<StoredExercise>(loadExercise())
 
 export function setBpm(bpm: number) {
     exerciseStore.bpm = normalizeBpm(bpm)
+    exerciseStore.tempoCeiling = Math.max(exerciseStore.tempoCeiling, exerciseStore.bpm)
+}
+
+export function setTempoProgram(tempoProgram: TempoProgram) {
+    exerciseStore.tempoProgram = tempoProgram
+}
+
+export function setTempoStep(tempoStep: number) {
+    exerciseStore.tempoStep = normalizeTempoStep(tempoStep)
+}
+
+export function setTempoCeiling(tempoCeiling: number) {
+    exerciseStore.tempoCeiling = Math.max(exerciseStore.bpm, normalizeBpm(tempoCeiling))
 }
 
 export function setGenerationOptions(options: GenerationOptions) {

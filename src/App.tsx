@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { type CSSProperties, useEffect, useRef, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
     faGear,
@@ -23,18 +23,30 @@ import {
     generateExerciseWithSettings,
     MAX_BPM,
     MIN_BPM,
+    MAX_TEMPO_STEP,
+    MIN_TEMPO_STEP,
     replaceMeasureNotes,
     setBpm,
     setPresetExercise,
+    setTempoCeiling,
+    setTempoProgram,
+    setTempoStep,
 } from './store/exerciseStore'
 import type { ExerciseNote, PickStroke, PlayerHit, TimeSignature } from './types'
 import { presetToExercise, type StickControlPreset } from './domain/stickControlPresets'
 
 const currentTime = () => performance.now()
 
+function rangeStyle(value: number, min: number, max: number): CSSProperties {
+    return {
+        '--range-value-position': `${((value - min) / (max - min)) * 100}%`,
+    } as CSSProperties
+}
+
 function App() {
     const storedExercise = useSnapshot(exerciseStore)
-    const { measures, generationOptions, signature, bpm } = storedExercise
+    const { measures, generationOptions, signature, bpm, tempoCeiling, tempoProgram, tempoStep } =
+        storedExercise
     const exercise: ExerciseNote[] = storedExercise.exercise.map((note) => ({ ...note }))
     const [hits, setHits] = useState<PlayerHit[]>([])
     const [state, setState] = useState<'ready' | 'count-in' | 'playing' | 'finished'>('ready')
@@ -46,6 +58,7 @@ function App() {
     const [isLooping, setIsLooping] = useState(false)
     const [settingsOpen, setSettingsOpen] = useState(false)
     const [tempoOpen, setTempoOpen] = useState(false)
+    const [activeBpm, setActiveBpm] = useState<number | null>(null)
     const [editorMeasure, setEditorMeasure] = useState<number | null>(null)
     const [editorSteps, setEditorSteps] = useState<StepKind[]>([])
     const [editorStrokes, setEditorStrokes] = useState<(PickStroke | undefined)[]>([])
@@ -54,15 +67,24 @@ function App() {
     const startedAt = useRef(0)
     const timer = useRef<number | null>(null)
     const isLoopingRef = useRef(false)
+    const tempoRun = useRef<{
+        bpm: number
+        baseBpm: number
+        ceiling: number
+        step: number
+        program: typeof tempoProgram
+        returning: boolean
+    } | null>(null)
+    const activeRunMs = useRef(0)
     const previewStop = useRef<null | (() => void)>(null)
     const previewTimer = useRef<number | null>(null)
     const progressFrame = useRef<number | null>(null)
     const previewRequest = useRef(0)
     const notationScroll = useRef<HTMLDivElement>(null)
     const spec = signatures[signature]
-    const beatMs = 60000 / bpm
+    const displayedBpm = activeBpm ?? bpm
+    const beatMs = 60000 / displayedBpm
     const measureMs = beatMs * spec.beats
-    const totalMs = measureMs * measures
 
     useEffect(
         () => () => {
@@ -118,6 +140,9 @@ function App() {
         setCountInBeat(0)
         setActiveSlot(-1)
         setActiveMeasure(-1)
+        setActiveBpm(null)
+        tempoRun.current = null
+        activeRunMs.current = 0
     }
     function openMeasureEditor() {
         if (selectedMeasure === null || state === 'count-in' || state === 'playing') return
@@ -194,20 +219,28 @@ function App() {
             setActiveSlot(-1)
         }
     }
-    function showProgress(startAt: number, measureStart: number, measureCount: number) {
+    function showProgress(
+        startAt: number,
+        measureStart: number,
+        measureCount: number,
+        currentMeasureMs = measureMs,
+    ) {
         const update = () => {
             const elapsed = performance.now() - startAt
             if (elapsed < 0) {
                 progressFrame.current = requestAnimationFrame(update)
                 return
             }
-            const measureOffset = Math.min(Math.floor(elapsed / measureMs), measureCount - 1)
-            const elapsedInMeasure = elapsed - measureOffset * measureMs
+            const measureOffset = Math.min(Math.floor(elapsed / currentMeasureMs), measureCount - 1)
+            const elapsedInMeasure = elapsed - measureOffset * currentMeasureMs
             setActiveMeasure(measureStart + measureOffset)
             setActiveSlot(
-                Math.min(spec.slots - 1, Math.floor((elapsedInMeasure / measureMs) * spec.slots)),
+                Math.min(
+                    spec.slots - 1,
+                    Math.floor((elapsedInMeasure / currentMeasureMs) * spec.slots),
+                ),
             )
-            if (elapsed < measureCount * measureMs) {
+            if (elapsed < measureCount * currentMeasureMs) {
                 progressFrame.current = requestAnimationFrame(update)
             }
         }
@@ -215,6 +248,7 @@ function App() {
     }
     async function previewPattern(measure?: number, notes = exercise) {
         if (state === 'count-in' || state === 'playing') return
+        setTempoOpen(false)
         const target = measure ?? 'all'
         if (previewing === target) {
             stopPreview()
@@ -253,6 +287,16 @@ function App() {
     }
     async function startExercise() {
         reset()
+        setTempoOpen(false)
+        tempoRun.current = {
+            bpm,
+            baseBpm: bpm,
+            ceiling: Math.max(bpm, tempoCeiling),
+            step: tempoStep,
+            program: tempoProgram,
+            returning: false,
+        }
+        setActiveBpm(bpm)
         setState('count-in')
         metronome.current.start(beatMs, (beat) => {
             const displayedBeat = beat + 1
@@ -267,27 +311,39 @@ function App() {
         try {
             cleanup.current = await listenForOnsets((strength) => {
                 const time = performance.now() - startedAt.current
-                if (time < totalMs) setHits((previous) => [...previous, { time, strength }])
+                if (time < activeRunMs.current) {
+                    setHits((previous) => [...previous, { time, strength }])
+                }
             })
             startedAt.current = currentTime()
             setState('playing')
             showProgress(startedAt.current, 0, measures)
-            metronome.current.start(beatMs, () => undefined)
-            scheduleExerciseEnd()
+            metronome.current.start(
+                () => 60000 / (tempoRun.current?.bpm ?? bpm),
+                () => undefined,
+            )
+            scheduleExerciseEnd(tempoRun.current?.bpm ?? bpm)
         } catch {
             setState('ready')
             alert('Microphone permission is needed to listen to your playing.')
         }
     }
-    function scheduleExerciseEnd() {
+    function scheduleExerciseEnd(runBpm: number) {
+        const runMs = (60000 / runBpm) * spec.beats * measures
+        activeRunMs.current = runMs
         timer.current = window.setTimeout(() => {
-            if (isLoopingRef.current) {
+            const nextBpm = nextTempoBpm()
+            if (
+                nextBpm !== null &&
+                (isLoopingRef.current || tempoRun.current?.program === 'increase-and-return')
+            ) {
                 setHits([])
                 startedAt.current = currentTime()
                 setActiveMeasure(0)
                 setActiveSlot(-1)
-                showProgress(startedAt.current, 0, measures)
-                scheduleExerciseEnd()
+                setActiveBpm(nextBpm)
+                showProgress(startedAt.current, 0, measures, (60000 / nextBpm) * spec.beats)
+                scheduleExerciseEnd(nextBpm)
                 return
             }
             metronome.current.stop()
@@ -296,7 +352,25 @@ function App() {
             setState('finished')
             setActiveSlot(-1)
             setActiveMeasure(-1)
-        }, totalMs + 30)
+            setActiveBpm(null)
+            tempoRun.current = null
+        }, runMs + 30)
+    }
+    function nextTempoBpm() {
+        const run = tempoRun.current
+        if (!run) return null
+        if (run.program === 'increase-and-return') {
+            if (!run.returning && run.bpm >= run.ceiling) run.returning = true
+            if (run.returning) {
+                if (run.bpm <= run.baseBpm) return null
+                run.bpm = Math.max(run.baseBpm, run.bpm - run.step)
+            } else {
+                run.bpm = Math.min(run.ceiling, run.bpm + run.step)
+            }
+        } else if (run.program === 'increase') {
+            run.bpm = Math.min(run.ceiling, run.bpm + run.step)
+        }
+        return run.bpm
     }
     function toggleLooping() {
         setIsLooping((previous) => {
@@ -338,22 +412,98 @@ function App() {
                             aria-expanded={tempoOpen}
                             aria-label="Change tempo"
                         >
-                            <span className="tempo-value">{bpm}</span>
+                            <span className="tempo-value">{displayedBpm}</span>
                             <span>BPM</span>
                         </button>
                         {tempoOpen ? (
                             <div className="tempo-popover">
                                 <label>
-                                    Tempo <output>{bpm} BPM</output>
+                                    Tempo <output>{displayedBpm} BPM</output>
                                     <input
                                         type="range"
                                         min={MIN_BPM}
                                         max={MAX_BPM}
                                         step="1"
                                         value={bpm}
+                                        style={rangeStyle(bpm, MIN_BPM, MAX_BPM)}
                                         onChange={(event) => setBpm(Number(event.target.value))}
+                                        disabled={state === 'count-in' || state === 'playing'}
                                     />
                                 </label>
+                                <label>
+                                    Tempo program
+                                    <select
+                                        value={tempoProgram}
+                                        onChange={(event) =>
+                                            setTempoProgram(
+                                                event.target.value as typeof tempoProgram,
+                                            )
+                                        }
+                                        disabled={state === 'count-in' || state === 'playing'}
+                                    >
+                                        <option value="steady">Keep tempo</option>
+                                        <option value="increase">Increase on each loop</option>
+                                        <option value="increase-and-return">
+                                            Increase, return, and stop
+                                        </option>
+                                    </select>
+                                </label>
+                                {tempoProgram !== 'steady' ? (
+                                    <>
+                                        <label>
+                                            Change per pass <output>{tempoStep} BPM</output>
+                                            <input
+                                                type="range"
+                                                min={MIN_TEMPO_STEP}
+                                                max={MAX_TEMPO_STEP}
+                                                step="1"
+                                                value={tempoStep}
+                                                style={rangeStyle(
+                                                    tempoStep,
+                                                    MIN_TEMPO_STEP,
+                                                    MAX_TEMPO_STEP,
+                                                )}
+                                                onChange={(event) =>
+                                                    setTempoStep(Number(event.target.value))
+                                                }
+                                                disabled={
+                                                    state === 'count-in' || state === 'playing'
+                                                }
+                                            />
+                                        </label>
+                                        <label>
+                                            Maximum <output>{tempoCeiling} BPM</output>
+                                            <input
+                                                className="tempo-ceiling-slider"
+                                                type="range"
+                                                min={MIN_BPM}
+                                                max={MAX_BPM}
+                                                step="1"
+                                                value={tempoCeiling}
+                                                style={
+                                                    {
+                                                        ...rangeStyle(
+                                                            tempoCeiling,
+                                                            MIN_BPM,
+                                                            MAX_BPM,
+                                                        ),
+                                                        '--tempo-minimum-position': `${
+                                                            ((bpm - MIN_BPM) /
+                                                                (MAX_BPM - MIN_BPM)) *
+                                                            100
+                                                        }%`,
+                                                    } as CSSProperties
+                                                }
+                                                onChange={(event) =>
+                                                    setTempoCeiling(Number(event.target.value))
+                                                }
+                                                disabled={
+                                                    state === 'count-in' || state === 'playing'
+                                                }
+                                            />
+                                        </label>
+                                    </>
+                                ) : null}
                             </div>
                         ) : null}
                     </div>

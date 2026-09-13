@@ -1,6 +1,7 @@
 export class Metronome {
     private context: AudioContext | null = null
     private timer: number | null = null
+    private runId = 0
 
     private ensureContext() {
         this.context ??= new AudioContext()
@@ -21,19 +22,24 @@ export class Metronome {
         oscillator.stop(context.currentTime + 0.07)
     }
 
-    start(intervalMs: number, onBeat: (beat: number) => void) {
+    start(intervalMs: number | (() => number), onBeat: (beat: number) => void) {
         this.stop()
+        const runId = ++this.runId
         let beat = 0
-        this.click(true)
-        onBeat(beat++)
-        this.timer = window.setInterval(() => {
+        const tick = () => {
+            if (runId !== this.runId) return
             this.click(beat % 4 === 0)
             onBeat(beat++)
-        }, intervalMs)
+            if (runId !== this.runId) return
+            const nextInterval = typeof intervalMs === 'function' ? intervalMs() : intervalMs
+            this.timer = window.setTimeout(tick, nextInterval)
+        }
+        tick()
     }
 
     stop() {
-        if (this.timer !== null) window.clearInterval(this.timer)
+        this.runId++
+        if (this.timer !== null) window.clearTimeout(this.timer)
         this.timer = null
     }
 }
