@@ -84,6 +84,23 @@ export function regenerateExercise(
     exerciseStore.exercise = generateExercise(measures, options, signature)
 }
 
+export function generateExerciseWithSettings(
+    measures: number,
+    options: GenerationOptions,
+    signature: TimeSignature,
+) {
+    exerciseStore.measures = measures
+    exerciseStore.generationOptions = options
+    exerciseStore.signature = signature
+    exerciseStore.exercise = generateExercise(measures, options, signature)
+}
+
+export function setPresetExercise(exercise: ExerciseNote[]) {
+    exerciseStore.measures = 2
+    exerciseStore.signature = '4/4'
+    exerciseStore.exercise = exercise
+}
+
 export function replaceMeasureNotes(measure: number, notes: ExerciseNote[]) {
     exerciseStore.exercise = [
         ...exerciseStore.exercise.filter((note) => note.measure !== measure),

@@ -14,6 +14,7 @@ type Props = {
     onPreview: () => void
     onSave: () => void
     onClose: () => void
+    embedded?: boolean
 }
 
 const labels: Record<StepKind, string> = {
@@ -36,35 +37,29 @@ export function MeasureEditor({
     onPreview,
     onSave,
     onClose,
+    embedded = false,
 }: Props) {
     const beatSlots = signature === '6/8' ? 6 : 4
 
-    return (
-        <div className="measure-editor-backdrop" role="presentation" onMouseDown={onClose}>
-            <section
-                className="measure-editor"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="measure-editor-title"
-                onMouseDown={(event) => event.stopPropagation()}
-            >
-                <header className="measure-editor-header">
+    const editor = (
+            <section className={embedded ? 'measure-editor embedded' : 'measure-editor'} role={embedded ? undefined : 'dialog'} aria-modal={embedded ? undefined : true} aria-labelledby="measure-editor-title">
+                {!embedded ? <header className="measure-editor-header">
                     <div>
                         <p>Measure {measure + 1}</p>
                         <h2 id="measure-editor-title">Rhythm editor · {signature}</h2>
                     </div>
-                    <button
+                    {!embedded ? <button
                         className="editor-close"
                         type="button"
                         onClick={onClose}
                         aria-label="Close editor"
                     >
                         <FontAwesomeIcon icon={faXmark} />
-                    </button>
-                </header>
-                <p className="editor-help">
+                    </button> : null}
+                </header> : null}
+                {!embedded ? <p className="editor-help">
                     Pick a state from its row. Continue cells after a triplet set its length.
-                </p>
+                </p> : null}
                 <div className="editor-matrix">
                     <div className="editor-matrix-axis">
                         <span />
@@ -146,21 +141,26 @@ export function MeasureEditor({
                         </div>
                     ))}
                 </div>
-                <footer className="measure-editor-actions">
+                {!embedded ? <footer className="measure-editor-actions">
                     <button className="editor-preview" type="button" onClick={onPreview}>
                         <FontAwesomeIcon icon={isPreviewing ? faStop : faPlay} />
                         {isPreviewing ? 'Stop' : 'Listen'}
                     </button>
                     <div>
-                        <button className="editor-cancel" type="button" onClick={onClose}>
+                        {!embedded ? <button className="editor-cancel" type="button" onClick={onClose}>
                             Cancel
-                        </button>
+                        </button> : null}
                         <button className="editor-save" type="button" onClick={onSave}>
-                            Save measure
+                            {embedded ? 'Apply to exercise' : 'Save measure'}
                         </button>
                     </div>
                 </footer>
+                : null}
             </section>
+    )
+    return embedded ? editor : (
+        <div className="measure-editor-backdrop" role="presentation" onMouseDown={onClose}>
+            <div onMouseDown={(event) => event.stopPropagation()}>{editor}</div>
         </div>
     )
 }

@@ -6,24 +6,25 @@ import {
     faRotateRight,
     faStop,
     faVolumeHigh,
-    faXmark,
 } from '@fortawesome/free-solid-svg-icons'
 import { useSnapshot } from 'valtio'
 import { Metronome, listenForOnsets, playRhythmPattern } from './audio'
 import { Measure } from './components/Measure'
 import { MeasureEditor } from './components/MeasureEditor'
+import { ExerciseSettingsModal } from './components/ExerciseSettingsModal'
 import { notesToSteps, notesToStrokes, stepsToNotes } from './domain/measureSteps'
 import type { StepKind } from './domain/measureSteps'
 import { TimingDetail } from './components/TimingDetail'
-import { generateExercise, signatures } from './domain/exercise'
+import { signatures } from './domain/exercise'
 import type { GenerationOptions } from './domain/exercise'
 import {
     exerciseStore,
-    regenerateExercise,
+    generateExerciseWithSettings,
     replaceMeasureNotes,
-    setGenerationOptions,
+    setPresetExercise,
 } from './store/exerciseStore'
 import type { ExerciseNote, PickStroke, PlayerHit, TimeSignature } from './types'
+import { presetToExercise, type StickControlPreset } from './domain/stickControlPresets'
 
 const currentTime = () => performance.now()
 
@@ -38,9 +39,12 @@ function App() {
     const [activeMeasure, setActiveMeasure] = useState(-1)
     const [previewing, setPreviewing] = useState<'all' | number | null>(null)
     const [settingsOpen, setSettingsOpen] = useState(false)
+    const [tempoOpen, setTempoOpen] = useState(false)
     const [editorMeasure, setEditorMeasure] = useState<number | null>(null)
     const [editorSteps, setEditorSteps] = useState<StepKind[]>([])
     const [editorStrokes, setEditorStrokes] = useState<(PickStroke | undefined)[]>([])
+    const [manualSteps, setManualSteps] = useState<StepKind[]>([])
+    const [manualStrokes, setManualStrokes] = useState<(PickStroke | undefined)[]>([])
     const cleanup = useRef<null | (() => void)>(null)
     const metronome = useRef(new Metronome())
     const startedAt = useRef(0)
@@ -87,27 +91,37 @@ function App() {
             behavior: 'smooth',
         })
     }, [activeMeasure, previewing, state])
-    function regenerate() {
-        reset()
-        regenerateExercise(measures, generationOptions, signature)
-        setSelectedMeasure(null)
-    }
     function updateExerciseSettings(nextMeasures: number, nextSignature: TimeSignature) {
         if (state === 'count-in' || state === 'playing') return
         exerciseStore.measures = nextMeasures
         exerciseStore.signature = nextSignature
-        exerciseStore.exercise = generateExercise(nextMeasures, generationOptions, nextSignature)
+        const nextSlots = signatures[nextSignature].slots
+        if (nextSignature !== signature) {
+            exerciseStore.exercise = Array.from({ length: nextMeasures }, (_, measure) =>
+                silentMeasure(measure, nextSlots),
+            ).flat()
+            setManualSteps(Array.from({ length: nextSlots }, () => 'rest'))
+            setManualStrokes(Array.from({ length: nextSlots }))
+        } else {
+            exerciseStore.exercise = Array.from({ length: nextMeasures }, (_, measure) => {
+                const existing = exercise.filter((note) => note.measure === measure)
+                return existing.length ? existing : silentMeasure(measure, nextSlots)
+            }).flat()
+        }
         setHits([])
         setSelectedMeasure(null)
         setState('ready')
     }
-    function updateGenerationOption(option: keyof GenerationOptions, enabled: boolean) {
+    function generateFromSettings(
+        nextMeasures: number,
+        nextOptions: GenerationOptions,
+        nextSignature: TimeSignature,
+    ) {
         if (state === 'count-in' || state === 'playing') return
-        const nextOptions = { ...generationOptions, [option]: enabled }
-        setGenerationOptions(nextOptions)
-        setHits([])
+        reset()
+        generateExerciseWithSettings(nextMeasures, nextOptions, nextSignature)
         setSelectedMeasure(null)
-        setState('ready')
+        setSettingsOpen(false)
     }
     function reset() {
         stopPreview()
@@ -127,6 +141,14 @@ function App() {
         setEditorSteps(notesToSteps(measureNotes, spec.slots))
         setEditorStrokes(notesToStrokes(measureNotes, spec.slots))
         setEditorMeasure(selectedMeasure)
+    }
+    function openExerciseSettings() {
+        if (state === 'count-in' || state === 'playing') return
+        stopPreview()
+        const measureNotes = exercise.filter((note) => note.measure === 0)
+        setManualSteps(notesToSteps(measureNotes, spec.slots))
+        setManualStrokes(notesToStrokes(measureNotes, spec.slots))
+        setSettingsOpen(true)
     }
     function setEditorStroke(step: number, stroke: PickStroke) {
         setEditorStrokes((previous) => {
@@ -148,6 +170,61 @@ function App() {
         replaceMeasureNotes(editorMeasure, replacement)
         setHits([])
         setEditorMeasure(null)
+    }
+    function setManualStroke(step: number, stroke: PickStroke) {
+        setManualStrokes((previous) => {
+            const next = [...previous]
+            next[step] = stroke
+            return next
+        })
+    }
+    function setManualStep(step: number, kind: StepKind) {
+        const wasRest = manualSteps[step] === 'rest'
+        setManualSteps((previous) => {
+            const next = [...previous]
+            next[step] = kind
+            return next
+        })
+        if (kind === 'rest') {
+            setManualStrokes((previous) => {
+                const next = [...previous]
+                next[step] = undefined
+                return next
+            })
+            return
+        }
+        if (!wasRest || kind === 'continue') return
+        setManualStrokes((previous) => {
+            const next = [...previous]
+            let previousStroke: PickStroke | undefined
+            for (let index = step - 1; index >= 0; index--) {
+                if (previous[index]) {
+                    previousStroke = previous[index]
+                    break
+                }
+            }
+            next[step] = previousStroke === 'down' ? 'up' : 'down'
+            return next
+        })
+    }
+    function saveManualMeasure() {
+        const replacement = stepsToNotes(manualSteps, 0, manualStrokes)
+        exerciseStore.exercise = Array.from({ length: measures }, (_, measure) =>
+            replacement.map((note) => ({
+                ...note,
+                id: `${measure}-${note.position}`,
+                measure,
+            })),
+        ).flat()
+        setHits([])
+        setSelectedMeasure(null)
+    }
+    function choosePreset(preset: StickControlPreset) {
+        if (state === 'count-in' || state === 'playing') return
+        reset()
+        setPresetExercise(presetToExercise(preset))
+        setSelectedMeasure(null)
+        setSettingsOpen(false)
     }
     function stopPreview() {
         previewRequest.current++
@@ -269,105 +346,22 @@ function App() {
                 <h1 className="absolute left-1/2 m-0 hidden -translate-x-1/2 rounded-full border border-slate-700 bg-slate-800 px-3 py-1 text-sm font-medium text-slate-300 sm:block">
                     {signature} <span className="px-1 text-slate-500">·</span> {measures} measures
                 </h1>
+                <div className="ml-auto flex items-center gap-2">
                 <button
-                    className="settings-toggle ml-auto"
+                    className="header-control"
                     type="button"
-                    onClick={() => setSettingsOpen(true)}
+                    onClick={openExerciseSettings}
                     aria-label="Open exercise settings"
                     aria-expanded={settingsOpen}
-                    aria-controls="exercise-settings"
                 >
                     <FontAwesomeIcon icon={faGear} />
+                    <span>Exercise</span>
                 </button>
+                <button className="header-control" type="button" onClick={() => setTempoOpen((open) => !open)} aria-expanded={tempoOpen} aria-label="Change tempo"><span className="tempo-value">{bpm}</span><span>BPM</span></button>
+                </div>
+                {tempoOpen ? <div className="tempo-popover"><label>Tempo <output>{bpm} BPM</output><input type="range" min="45" max="180" value={bpm} onChange={(event) => (exerciseStore.bpm = Number(event.target.value))} /></label></div> : null}
             </header>
-            <div className="app-body grid min-h-0 overflow-hidden lg:grid-cols-[18rem_minmax(0,1fr)]">
-                <aside
-                    className={`control-panel ${settingsOpen ? 'settings-open' : ''} flex min-h-0 flex-col gap-6 overflow-y-auto border-r border-slate-800 bg-slate-900 p-5 md:p-6`}
-                    id="exercise-settings"
-                    aria-label="Exercise settings"
-                >
-                    <div className="settings-panel-heading items-center justify-between text-base font-bold text-indigo-300">
-                        <span>Exercise settings</span>
-                        <button
-                            className="settings-close"
-                            type="button"
-                            onClick={() => setSettingsOpen(false)}
-                            aria-label="Close exercise settings"
-                        >
-                            <FontAwesomeIcon icon={faXmark} />
-                        </button>
-                    </div>
-                    <div className="grid gap-5">
-                        <label>
-                            Measures
-                            <select
-                                value={measures}
-                                onChange={(e) =>
-                                    updateExerciseSettings(Number(e.target.value), signature)
-                                }
-                            >
-                                {[2, 3, 4, 6, 8, 12, 16, 24, 32].map((n) => (
-                                    <option key={n}>{n}</option>
-                                ))}
-                            </select>
-                        </label>
-                        <fieldset className="generation-options">
-                            <legend>Allowed elements</legend>
-                            {(
-                                [
-                                    ['rests', 'Rests'],
-                                    ['eighths', 'Eighth notes'],
-                                    ['sixteenths', 'Sixteenth notes'],
-                                    ['palmMutes', 'Palm mute'],
-                                    ['triplets', 'Triplets'],
-                                ] as [keyof GenerationOptions, string][]
-                            ).map(([option, label]) => (
-                                <label className="generation-option" key={option}>
-                                    <input
-                                        type="checkbox"
-                                        checked={generationOptions[option]}
-                                        onChange={(event) =>
-                                            updateGenerationOption(option, event.target.checked)
-                                        }
-                                    />
-                                    <span>{label}</span>
-                                </label>
-                            ))}
-                        </fieldset>
-                        <label>
-                            Time signature
-                            <select
-                                value={signature}
-                                onChange={(e) =>
-                                    updateExerciseSettings(
-                                        measures,
-                                        e.target.value as TimeSignature,
-                                    )
-                                }
-                            >
-                                <option>4/4</option>
-                                <option>3/4</option>
-                                <option>6/8</option>
-                            </select>
-                        </label>
-                        <label className="bpm">
-                            Tempo{' '}
-                            <output>
-                                {bpm} <small>BPM</small>
-                            </output>
-                            <input
-                                type="range"
-                                min="45"
-                                max="180"
-                                value={bpm}
-                                onChange={(e) => (exerciseStore.bpm = Number(e.target.value))}
-                            />
-                        </label>
-                    </div>
-                    <button className="secondary" onClick={regenerate}>
-                        Generate
-                    </button>
-                </aside>
+            <div className="app-body grid min-h-0 overflow-hidden">
                 <section className="grid min-h-0 min-w-0 overflow-hidden bg-slate-950">
                     <div className="notation-scroll p-5 md:p-7" ref={notationScroll}>
                         <div className="flex min-w-0 flex-wrap content-start pb-36">
@@ -497,8 +491,13 @@ function App() {
                     }}
                 />
             ) : null}
+            {settingsOpen ? <ExerciseSettingsModal measures={measures} signature={signature} options={generationOptions} onClose={() => setSettingsOpen(false)} onSettingsChange={updateExerciseSettings} manualSteps={manualSteps} manualStrokes={manualStrokes} isManualPreviewing={previewing === 0} onManualChange={setManualStep} onManualStrokeChange={setManualStroke} onManualPreview={() => previewPattern(0, stepsToNotes(manualSteps, 0, manualStrokes))} onManualSave={saveManualMeasure} onPreset={choosePreset} onGenerate={generateFromSettings} /> : null}
         </main>
     )
+}
+
+function silentMeasure(measure: number, slots: number): ExerciseNote[] {
+    return [{ id: `${measure}-0`, measure, position: 0, duration: slots, isRest: true }]
 }
 
 export default App

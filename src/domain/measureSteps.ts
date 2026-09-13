@@ -44,13 +44,11 @@ export function notesToSteps(notes: ExerciseNote[], slots: number): StepKind[] {
             const start = Math.max(0, Math.round(note.position))
             const length = Math.max(1, Math.round(note.duration))
             if (start >= slots) return
-            steps[start] = note.isRest
-                ? 'rest'
-                : note.palmMuted
-                  ? 'mute'
-                  : note.isTriplet
-                    ? 'triplet'
-                    : 'note'
+            if (note.isRest) {
+                steps.fill('rest', start, Math.min(slots, start + length))
+                return
+            }
+            steps[start] = note.palmMuted ? 'mute' : note.isTriplet ? 'triplet' : 'note'
             for (let position = start + 1; position < Math.min(slots, start + length); position++) {
                 steps[position] = 'continue'
             }
@@ -102,19 +100,49 @@ export function stepsToNotes(
             position = end
             continue
         }
+        if (kind === 'rest') {
+            let end = position + 1
+            while (end < steps.length && steps[end] === 'rest') end++
+            const rests = restNotes(position, end, measure)
+            notes.push(...rests)
+            lastNote = rests.at(-1)
+            position = end
+            continue
+        }
 
         const note: ExerciseNote = {
             id: `${measure}-${position}`,
             measure,
             position,
             duration: 1,
-            isRest: kind === 'rest',
+            isRest: false,
             palmMuted: kind === 'mute',
-            stroke: kind === 'rest' ? undefined : strokeFor(position),
+            stroke: strokeFor(position),
         }
         notes.push(note)
         lastNote = note
         position++
     }
+    return notes
+}
+
+/** Uses the largest notation-friendly rest values while preserving the silent span. */
+function restNotes(start: number, end: number, measure: number): ExerciseNote[] {
+    const notes: ExerciseNote[] = []
+    const durations = [16, 12, 8, 6, 4, 3, 2, 1]
+    let position = start
+
+    while (position < end) {
+        const duration = durations.find((candidate) => candidate <= end - position) ?? 1
+        notes.push({
+            id: `${measure}-${position}`,
+            measure,
+            position,
+            duration,
+            isRest: true,
+        })
+        position += duration
+    }
+
     return notes
 }
