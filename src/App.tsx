@@ -3,6 +3,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
     faGear,
     faPlay,
+    faRepeat,
     faRotateRight,
     faStop,
     faVolumeHigh,
@@ -38,6 +39,7 @@ function App() {
     const [activeSlot, setActiveSlot] = useState(-1)
     const [activeMeasure, setActiveMeasure] = useState(-1)
     const [previewing, setPreviewing] = useState<'all' | number | null>(null)
+    const [isLooping, setIsLooping] = useState(false)
     const [settingsOpen, setSettingsOpen] = useState(false)
     const [tempoOpen, setTempoOpen] = useState(false)
     const [editorMeasure, setEditorMeasure] = useState<number | null>(null)
@@ -49,6 +51,7 @@ function App() {
     const metronome = useRef(new Metronome())
     const startedAt = useRef(0)
     const timer = useRef<number | null>(null)
+    const isLoopingRef = useRef(false)
     const previewStop = useRef<null | (() => void)>(null)
     const previewTimer = useRef<number | null>(null)
     const progressFrame = useRef<number | null>(null)
@@ -319,18 +322,37 @@ function App() {
             setState('playing')
             showProgress(startedAt.current, 0, measures)
             metronome.current.start(beatMs, () => undefined)
-            timer.current = window.setTimeout(() => {
-                metronome.current.stop()
-                cleanup.current?.()
-                if (progressFrame.current) cancelAnimationFrame(progressFrame.current)
-                setState('finished')
-                setActiveSlot(-1)
-                setActiveMeasure(-1)
-            }, totalMs + 30)
+            scheduleExerciseEnd()
         } catch {
             setState('ready')
             alert('Microphone permission is needed to listen to your playing.')
         }
+    }
+    function scheduleExerciseEnd() {
+        timer.current = window.setTimeout(() => {
+            if (isLoopingRef.current) {
+                setHits([])
+                startedAt.current = currentTime()
+                setActiveMeasure(0)
+                setActiveSlot(-1)
+                showProgress(startedAt.current, 0, measures)
+                scheduleExerciseEnd()
+                return
+            }
+            metronome.current.stop()
+            cleanup.current?.()
+            if (progressFrame.current) cancelAnimationFrame(progressFrame.current)
+            setState('finished')
+            setActiveSlot(-1)
+            setActiveMeasure(-1)
+        }, totalMs + 30)
+    }
+    function toggleLooping() {
+        setIsLooping((previous) => {
+            const next = !previous
+            isLoopingRef.current = next
+            return next
+        })
     }
     const measureHits = (i: number) =>
         hits.filter((hit) => hit.time >= i * measureMs && hit.time < (i + 1) * measureMs)
@@ -412,6 +434,21 @@ function App() {
                     ) : null}
                 </div>
                 <div className="flex items-end gap-3 border-l border-slate-700 pl-4">
+                    <div className="flex flex-col items-center gap-1">
+                        <button
+                            className="icon-button"
+                            type="button"
+                            onClick={toggleLooping}
+                            aria-label={
+                                isLooping ? 'Disable exercise loop' : 'Enable exercise loop'
+                            }
+                            aria-pressed={isLooping}
+                            title={isLooping ? 'Disable exercise loop' : 'Loop exercise'}
+                        >
+                            <FontAwesomeIcon icon={faRepeat} />
+                        </button>
+                        <span className="text-[10px] font-medium text-slate-400">Loop</span>
+                    </div>
                     <div className="flex flex-col items-center gap-1">
                         <button
                             className="icon-button"

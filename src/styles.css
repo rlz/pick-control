@@ -299,6 +299,11 @@ button:disabled {
     color: #1e1b4b;
     background: #a5b4fc;
 }
+.icon-button[aria-pressed='true'] {
+    border-color: #818cf8;
+    color: #c7d2fe;
+    background: #3730a3;
+}
 .measure-editor-backdrop {
     position: fixed;
     z-index: 40;
