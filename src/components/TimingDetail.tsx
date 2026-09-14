@@ -5,8 +5,7 @@ import type { ExerciseNote, PlayerHit } from '../types'
 type Props = {
     measure: number
     notes: ExerciseNote[]
-    hits: PlayerHit[]
-    previousHits: PlayerHit[][]
+    runs: Array<{ hits: PlayerHit[]; measureMs: number; bpm: number }>
     slots: number
     beats: number
     measureMs: number
@@ -19,8 +18,7 @@ type Props = {
 export function TimingDetail({
     measure,
     notes,
-    hits,
-    previousHits,
+    runs,
     slots,
     beats,
     measureMs,
@@ -30,19 +28,23 @@ export function TimingDetail({
     isEditingDisabled,
 }: Props) {
     const edgeAllowanceMs = 120
-    const timelineWidthMs = measureMs + edgeAllowanceMs * 2
+    const timelineWidthMs = measureMs + edgeAllowanceMs
     const timelineStart = (edgeAllowanceMs / timelineWidthMs) * 100
     const timelineSpan = (measureMs / timelineWidthMs) * 100
-    const markerPosition = (hit: PlayerHit) =>
-        ((hit.time - measure * measureMs + edgeAllowanceMs) / timelineWidthMs) * 100
-    const isOnTime = (hit: PlayerHit) =>
+    // History may contain attempts at other tempi. Normalize each one to the
+    // same visual measure so its beat positions still meet the score's grid.
+    const markerPosition = (hit: PlayerHit, hitMeasureMs = measureMs) =>
+        timelineStart + ((hit.time - measure * hitMeasureMs) / hitMeasureMs) * timelineSpan
+    const isOnTime = (hit: PlayerHit, hitMeasureMs = measureMs) =>
         notes
             .filter((note) => !note.isRest)
             .some(
                 (note) =>
-                    Math.abs(hit.time - measure * measureMs - (note.position / slots) * measureMs) <
-                    150,
+                    Math.abs(
+                        hit.time - measure * hitMeasureMs - (note.position / slots) * hitMeasureMs,
+                    ) < 150,
             )
+    const showRunBpm = new Set(runs.map((run) => run.bpm)).size > 1
 
     return (
         <section className="flex h-full w-full min-w-0 items-center gap-3">
@@ -59,56 +61,60 @@ export function TimingDetail({
                     <FontAwesomeIcon icon={isPreviewing ? faStop : faPlay} />
                 </button>
             </div>
-            <div className="min-w-28 flex-1 sm:min-w-35">
-                <div className="timeline">
-                <div className="axis">
-                    {Array.from({ length: beats + 1 }, (_, index) => (
-                        <span
+            <div className="min-w-28 flex-1 pb-4 sm:min-w-35">
+                <div className={`timeline ${showRunBpm ? 'with-tempo' : ''}`}>
+                    <div className="axis">
+                        {Array.from({ length: beats + 1 }, (_, index) => (
+                            <span
+                                key={index}
+                                style={{
+                                    left: `${timelineStart + (index / beats) * timelineSpan}%`,
+                                }}
+                            >
+                                {index + 1}
+                            </span>
+                        ))}
+                    </div>
+                    {Array.from({ length: slots + 1 }, (_, index) => (
+                        <i
                             key={index}
-                            style={{ left: `${timelineStart + (index / beats) * timelineSpan}%` }}
-                        >
-                            {index + 1}
-                        </span>
-                    ))}
-                </div>
-                {Array.from({ length: slots + 1 }, (_, index) => (
-                    <i
-                        key={index}
-                        className={`subdivision ${index % 4 === 0 ? 'beat' : index % 2 === 0 ? 'eighth' : 'sixteenth'}`}
-                        style={{ left: `${timelineStart + (index / slots) * timelineSpan}%` }}
-                    />
-                ))}
-                {notes
-                    .filter((note) => !note.isRest)
-                    .map((note) => (
-                        <span
-                            className={`rhythm-bar ${note.palmMuted ? 'palm-muted' : ''}`}
-                            key={note.id}
-                            style={{
-                                left: `${timelineStart + (note.position / slots) * timelineSpan}%`,
-                                width: `${(note.duration / slots) * timelineSpan}%`,
-                            }}
-                            title={`${note.palmMuted ? 'Palm mute · ' : ''}Target: ${((note.position / slots) * 4 + 1).toFixed(2)}`}
+                            className={`subdivision ${index % 4 === 0 ? 'beat' : index % 2 === 0 ? 'eighth' : 'sixteenth'}`}
+                            style={{ left: `${timelineStart + (index / slots) * timelineSpan}%` }}
                         />
                     ))}
-                {hits.map((hit, hitIndex) => (
-                    <span
-                        className={`marker player ${isOnTime(hit) ? 'correct' : 'incorrect'}`}
-                        key={hitIndex}
-                        style={{ left: `${markerPosition(hit)}%` }}
-                        title={isOnTime(hit) ? 'On time' : 'Off beat'}
-                    />
-                ))}
+                    {notes
+                        .filter((note) => !note.isRest)
+                        .map((note) => (
+                            <span
+                                className={`rhythm-bar ${note.palmMuted ? 'palm-muted' : ''}`}
+                                key={note.id}
+                                style={{
+                                    left: `${timelineStart + (note.position / slots) * timelineSpan}%`,
+                                    width: `${(note.duration / slots) * timelineSpan}%`,
+                                }}
+                                title={`${note.palmMuted ? 'Palm mute · ' : ''}Target: ${((note.position / slots) * 4 + 1).toFixed(2)}`}
+                            />
+                        ))}
                 </div>
-                {previousHits.map((runHits, runIndex) => (
-                    <div className="loop-timeline" key={runIndex}>
-                        <span>#{runIndex + 1}</span>
+                {runs.map((run, runIndex) => (
+                    <div
+                        className={`loop-timeline ${showRunBpm ? 'with-tempo' : ''}`}
+                        key={runIndex}
+                    >
+                        <span>
+                            #{runIndex + 1}
+                            {showRunBpm ? ` · ${run.bpm} BPM` : ''}
+                        </span>
                         <div>
-                            {runHits.map((hit, hitIndex) => (
+                            {run.hits.map((hit, hitIndex) => (
                                 <i
-                                    className={isOnTime(hit) ? 'correct' : 'incorrect'}
+                                    className={
+                                        isOnTime(hit, run.measureMs) ? 'correct' : 'incorrect'
+                                    }
                                     key={hitIndex}
-                                    style={{ left: `${markerPosition(hit)}%` }}
+                                    style={{
+                                        left: `${markerPosition(hit, run.measureMs)}%`,
+                                    }}
                                 />
                             ))}
                         </div>

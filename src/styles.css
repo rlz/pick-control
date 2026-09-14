@@ -305,6 +305,10 @@ button:disabled {
 .measure.selected {
     background: #818cf810;
 }
+.measure:focus,
+.measure:focus-visible {
+    outline: none;
+}
 .measure.active {
     background: #22d3ee0d;
 }
@@ -359,8 +363,12 @@ button:disabled {
 .timeline {
     position: relative;
     height: 30px;
+    margin: 20px 0 6px;
     overflow: visible;
     border-bottom: 1px solid #64748b;
+}
+.timeline.with-tempo {
+    margin-left: calc(5rem + 0.35rem);
 }
 .axis span {
     position: absolute;
@@ -394,6 +402,13 @@ button:disabled {
     height: 18px;
     color: #64748b;
     font: 9px var(--font-mono);
+}
+.loop-timeline.with-tempo {
+    grid-template-columns: 5rem minmax(0, 1fr);
+}
+.loop-timeline.with-tempo > span {
+    text-align: left;
+    white-space: nowrap;
 }
 .loop-timeline > div {
     position: relative;

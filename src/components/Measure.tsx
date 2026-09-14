@@ -1,16 +1,12 @@
 import { EngravedMeasure } from './EngravedMeasure'
-import { getNoteFeedback } from '../domain/noteFeedback'
 import { useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
-import type { ExerciseNote, PlayerHit, TimeSignature } from '../types'
+import type { ExerciseNote, TimeSignature } from '../types'
 
 type Props = {
     index: number
-    slots: number
     signature: TimeSignature
     notes: ExerciseNote[]
-    hits: PlayerHit[]
-    measureMs: number
     selected: boolean
     isActive: boolean
     activeSlot: number
@@ -19,11 +15,8 @@ type Props = {
 
 export function Measure({
     index,
-    slots,
     signature,
     notes,
-    hits,
-    measureMs,
     selected,
     isActive,
     activeSlot,
@@ -64,11 +57,9 @@ export function Measure({
         ),
     )
     const displayWidth = Math.round(measureWidth * notationScale)
-    const noteFeedback = getNoteFeedback(notes, hits, slots, measureMs)
-
     return (
         <button
-            className={`measure ${selected ? 'selected' : ''} ${isActive ? 'active' : ''} relative min-h-48 flex-[0_0_var(--measure-width)] border-0 bg-transparent p-0 text-left text-inherit transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-indigo-400`}
+            className={`measure ${selected ? 'selected' : ''} ${isActive ? 'active' : ''} relative min-h-48 flex-[0_0_var(--measure-width)] border-0 bg-transparent p-0 text-left text-inherit transition-colors`}
             onClick={onClick}
             aria-label={`Open measure ${index + 1} timing`}
             data-measure={index}
@@ -82,7 +73,6 @@ export function Measure({
                     width={measureWidth}
                     scale={notationScale}
                     activeSlot={activeSlot}
-                    noteFeedback={noteFeedback}
                 />
             </div>
             <span className="tap">inspect timing</span>

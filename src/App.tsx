@@ -42,6 +42,8 @@ const currentTime = () => performance.now()
 type CompletedLoopRun = {
     startedAt: number
     duration: number
+    measureMs: number
+    bpm: number
     hits: PlayerHit[]
 }
 
@@ -57,7 +59,7 @@ function App() {
         storedExercise
     const exercise: ExerciseNote[] = storedExercise.exercise.map((note) => ({ ...note }))
     const [hits, setHits] = useState<PlayerHit[]>([])
-    const [loopRuns, setLoopRuns] = useState<PlayerHit[][]>([])
+    const [loopRuns, setLoopRuns] = useState<CompletedLoopRun[]>([])
     const [state, setState] = useState<'ready' | 'count-in' | 'playing' | 'finished'>('ready')
     const [countInBeat, setCountInBeat] = useState(0)
     const [selectedMeasure, setSelectedMeasure] = useState<number | null>(null)
@@ -114,6 +116,41 @@ function App() {
         },
         [],
     )
+    useEffect(() => {
+        if (
+            selectedMeasure === null ||
+            settingsOpen ||
+            calibrationOpen ||
+            editorMeasure !== null ||
+            tempoOpen
+        ) {
+            return
+        }
+
+        const selectAdjacentMeasure = (event: KeyboardEvent) => {
+            if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+            if (event.metaKey || event.ctrlKey || event.altKey) return
+            const target = event.target
+            if (
+                target instanceof HTMLElement &&
+                target.closest('input, select, textarea, [contenteditable="true"]')
+            ) {
+                return
+            }
+
+            event.preventDefault()
+            setSelectedMeasure((current) => {
+                if (current === null) return current
+                return Math.min(
+                    measures - 1,
+                    Math.max(0, current + (event.key === 'ArrowLeft' ? -1 : 1)),
+                )
+            })
+        }
+
+        window.addEventListener('keydown', selectAdjacentMeasure)
+        return () => window.removeEventListener('keydown', selectAdjacentMeasure)
+    }, [calibrationOpen, editorMeasure, measures, selectedMeasure, settingsOpen, tempoOpen])
     useEffect(() => {
         if (activeMeasure < 0 || (state !== 'playing' && previewing === null)) return
         const measure = notationScroll.current?.querySelector<HTMLElement>(
@@ -340,7 +377,12 @@ function App() {
                             time: detectedAt - historicalRun.startedAt - calibrationLatency,
                             strength,
                         })
-                        setLoopRuns(completedLoopRuns.current.map((run) => [...run.hits]))
+                        setLoopRuns(
+                            completedLoopRuns.current.map((run) => ({
+                                ...run,
+                                hits: [...run.hits],
+                            })),
+                        )
                         return
                     }
                     const detectedTime = detectedAt - startedAt.current - calibrationLatency
@@ -420,9 +462,13 @@ function App() {
                 completedLoopRuns.current.push({
                     startedAt: startedAt.current,
                     duration: runMs,
+                    measureMs: runMs / measures,
+                    bpm: runBpm,
                     hits: hitsRef.current,
                 })
-                setLoopRuns(completedLoopRuns.current.map((run) => [...run.hits]))
+                setLoopRuns(
+                    completedLoopRuns.current.map((run) => ({ ...run, hits: [...run.hits] })),
+                )
                 hitsRef.current = []
                 setHits([])
                 startedAt.current = currentTime()
@@ -474,14 +520,12 @@ function App() {
             return next
         })
     }
-    const measureHits = (i: number) =>
-        hits.filter((hit) => hit.time >= i * measureMs && hit.time < (i + 1) * measureMs)
-    const timingHits = (source: PlayerHit[], i: number) => {
+    const timingHits = (source: PlayerHit[], i: number, sourceMeasureMs = measureMs) => {
         const edgeAllowanceMs = 120
         return source.filter(
             (hit) =>
-                hit.time >= i * measureMs - edgeAllowanceMs &&
-                hit.time <= (i + 1) * measureMs + edgeAllowanceMs,
+                hit.time >= i * sourceMeasureMs - edgeAllowanceMs &&
+                hit.time < (i + 1) * sourceMeasureMs,
         )
     }
     return (
@@ -554,7 +598,8 @@ function App() {
                                     <select
                                         value={tempoProgram}
                                         onChange={(event) => {
-                                            const nextProgram = event.target.value as typeof tempoProgram
+                                            const nextProgram = event.target
+                                                .value as typeof tempoProgram
                                             setTempoProgram(nextProgram)
                                             if (nextProgram !== 'steady') {
                                                 isLoopingRef.current = true
@@ -642,11 +687,8 @@ function App() {
                                 <Measure
                                     key={index}
                                     index={index}
-                                    slots={spec.slots}
                                     signature={signature}
                                     notes={exercise.filter((n) => n.measure === index)}
-                                    hits={measureHits(index)}
-                                    measureMs={measureMs}
                                     selected={selectedMeasure === index}
                                     isActive={
                                         (state === 'playing' || previewing !== null) &&
@@ -694,10 +736,24 @@ function App() {
                         <TimingDetail
                             measure={selectedMeasure}
                             notes={exercise.filter((n) => n.measure === selectedMeasure)}
-                            hits={timingHits(hits, selectedMeasure)}
-                            previousHits={loopRuns.map((run) =>
-                                timingHits(run, selectedMeasure),
-                            )}
+                            runs={[
+                                ...loopRuns
+                                    .map((run) => ({
+                                        hits: timingHits(run.hits, selectedMeasure, run.measureMs),
+                                        measureMs: run.measureMs,
+                                        bpm: run.bpm,
+                                    }))
+                                    .filter((run) => run.hits.length),
+                                ...(timingHits(hits, selectedMeasure).length
+                                    ? [
+                                          {
+                                              hits: timingHits(hits, selectedMeasure),
+                                              measureMs,
+                                              bpm: displayedBpm,
+                                          },
+                                      ]
+                                    : []),
+                            ]}
                             slots={spec.slots}
                             beats={spec.beats}
                             measureMs={measureMs}
