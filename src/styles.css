@@ -386,6 +386,32 @@ button:disabled {
 .marker.player.incorrect {
     background: #fb7185;
 }
+.loop-timeline {
+    display: grid;
+    grid-template-columns: 1.5rem minmax(0, 1fr);
+    align-items: center;
+    gap: 0.35rem;
+    height: 18px;
+    color: #64748b;
+    font: 9px var(--font-mono);
+}
+.loop-timeline > div {
+    position: relative;
+    height: 1px;
+    background: #334155;
+}
+.loop-timeline i {
+    position: absolute;
+    bottom: -3px;
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: #22d3ee;
+    transform: translateX(-50%);
+}
+.loop-timeline i.incorrect {
+    background: #fb7185;
+}
 .subdivision {
     position: absolute;
     bottom: 0;

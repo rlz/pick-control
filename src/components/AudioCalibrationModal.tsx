@@ -38,11 +38,12 @@ type CalibrationSummary = {
 
 const meterFloorDb = -60
 const timelineWindowMs = 4000
-const calibrationBpm = 90
-const calibrationBeats = 16
+const calibrationBpms = [90] as const
+const calibrationBeatsPerTempo = 16
+const calibrationTotalBeats = calibrationBpms.length * calibrationBeatsPerTempo
 const countInBeats = 4
-const initialMatchWindowMs = 300
-const alignedMatchWindowMs = 220
+const initialMatchWindowMs = 180
+const alignedMatchWindowMs = 90
 const calibrationDetector = {
     // Be deliberately permissive while learning the player's quietest useful
     // attack. The saved profile below is calculated from beats that actually
@@ -82,6 +83,7 @@ export function AudioCalibrationModal({ onClose }: Props) {
     const [status, setStatus] = useState<'connecting' | 'ready' | 'error'>('connecting')
     const [calibrationState, setCalibrationState] = useState<CalibrationState>('idle')
     const [countInBeat, setCountInBeat] = useState(0)
+    const [seriesIndex, setSeriesIndex] = useState(0)
     const [summary, setSummary] = useState<CalibrationSummary | null>(null)
     const cleanup = useRef<null | (() => void)>(null)
     const eventId = useRef(0)
@@ -281,18 +283,48 @@ export function AudioCalibrationModal({ onClose }: Props) {
                 falsePositives: detected.filter((attack) => !matchedIds.has(attack.time)).length,
             }
         }
-        const best = profiles.map(evaluate).reduce(
-            (winner, attempt) =>
-                attempt.aligned.length * 100 - attempt.falsePositives * 30 >
-                winner.aligned.length * 100 - winner.falsePositives * 30
-                    ? attempt
-                    : winner,
+        const evaluations = profiles.map(evaluate)
+        const successfulProfiles = evaluations.filter(
+            (attempt) =>
+                attempt.aligned.length === calibrationTotalBeats && attempt.falsePositives === 0,
+        )
+        const best = (successfulProfiles.length ? successfulProfiles : evaluations).reduce(
+            (winner, attempt) => {
+                if (successfulProfiles.length) {
+                    // All candidates here already have 64/64 hits and no
+                    // extras. Prefer the one that leaves most headroom for a
+                    // quieter follow-up stroke and permits the fastest series.
+                    const sensitivity =
+                        attempt.profile.minIntervalMs * 1000 +
+                        attempt.profile.minimumAttackStrength * 100
+                    const winnerSensitivity =
+                        winner.profile.minIntervalMs * 1000 +
+                        winner.profile.minimumAttackStrength * 100
+                    return sensitivity < winnerSensitivity ? attempt : winner
+                }
+                const score = attempt.aligned.length * 100 - attempt.falsePositives * 30
+                const winnerScore = winner.aligned.length * 100 - winner.falsePositives * 30
+                if (score !== winnerScore) return score > winnerScore ? attempt : winner
+
+                // A tie means both profiles explain the take equally well. Keep
+                // the stricter one: otherwise the first (lowest) threshold in
+                // the grid is saved and room noise can become a live "attack".
+                const strictness =
+                    attempt.profile.minimumAttackStrength * 1000 +
+                    attempt.profile.baselineRatio +
+                    attempt.profile.riseRatio
+                const winnerStrictness =
+                    winner.profile.minimumAttackStrength * 1000 +
+                    winner.profile.baselineRatio +
+                    winner.profile.riseRatio
+                return strictness > winnerStrictness ? attempt : winner
+            },
             evaluate(calibrationDetector),
         )
         const latencyMs = Math.round(best.latency)
         const matched = best.aligned.length
         const falsePositives = best.falsePositives
-        const saved = matched === calibrationBeats && falsePositives === 0
+        const saved = matched === calibrationTotalBeats && falsePositives === 0
 
         if (saved) {
             const calibration = {
@@ -308,7 +340,7 @@ export function AudioCalibrationModal({ onClose }: Props) {
 
         setSummary({
             matched,
-            missed: calibrationBeats - matched,
+            missed: calibrationTotalBeats - matched,
             falsePositives,
             latencyMs,
             saved,
@@ -330,7 +362,7 @@ export function AudioCalibrationModal({ onClose }: Props) {
             calibrationActive.current = false
             setSummary({
                 matched: 0,
-                missed: calibrationBeats,
+                missed: calibrationTotalBeats,
                 falsePositives: 0,
                 latencyMs: 0,
                 saved: false,
@@ -345,13 +377,26 @@ export function AudioCalibrationModal({ onClose }: Props) {
         nextRecorder.addEventListener('dataavailable', (event) => {
             if (event.data.size) recordingChunks.current.push(event.data)
         })
+        nextRecorder.addEventListener(
+            'start',
+            () => {
+                recordingStartedAt.current = performance.now()
+            },
+            { once: true },
+        )
         recorder.current = nextRecorder
-        recordingStartedAt.current = performance.now()
         nextRecorder.start()
         calibrationRunning.current = false
+        setSeriesIndex(0)
+        runCalibrationSeries(0)
+    }
+
+    function runCalibrationSeries(nextSeriesIndex: number) {
+        const bpm = calibrationBpms[nextSeriesIndex]
+        setSeriesIndex(nextSeriesIndex)
         setCountInBeat(0)
         setCalibrationState('count-in')
-        metronome.current.start(60000 / calibrationBpm, (beat) => {
+        metronome.current.start(60000 / bpm, (beat) => {
             if (beat < countInBeats) {
                 setCountInBeat(beat + 1)
                 return
@@ -363,9 +408,12 @@ export function AudioCalibrationModal({ onClose }: Props) {
                 setCalibrationState('running')
             }
             beatTimes.current.push(performance.now())
-            if (calibrationBeat === calibrationBeats - 1) {
+            if (calibrationBeat === calibrationBeatsPerTempo - 1) {
                 metronome.current.stop()
-                finishTimer.current = window.setTimeout(() => void finishCalibration(), 500)
+                calibrationRunning.current = false
+                if (nextSeriesIndex === calibrationBpms.length - 1) {
+                    finishTimer.current = window.setTimeout(() => void finishCalibration(), 500)
+                }
             }
         })
     }
@@ -443,8 +491,7 @@ export function AudioCalibrationModal({ onClose }: Props) {
                         <div className="calibration-start">
                             <p>
                                 После четырёхдольного отсчёта сыграйте 16 ровных ударов под метроном
-                                90 BPM. Мы отсеем лишние срабатывания, измерим задержку и сохраним
-                                профиль.
+                                90 BPM. Профиль сохранится только при 16 точных срабатываниях без лишних.
                             </p>
                             <button
                                 className="secondary calibration-action"
@@ -529,7 +576,8 @@ export function AudioCalibrationModal({ onClose }: Props) {
                             </div>
                         ) : calibrationState === 'running' ? (
                             <p className="calibration-progress">
-                                Калибровка идёт: держите ровный пульс.
+                                Идёт запись: {calibrationBpms[seriesIndex]} BPM, сыграйте{' '}
+                                {calibrationBeatsPerTempo} ровных ударов.
                             </p>
                         ) : calibrationState === 'analysing' ? (
                             <p className="calibration-progress">Анализируем запись…</p>
@@ -543,9 +591,9 @@ export function AudioCalibrationModal({ onClose }: Props) {
                             >
                                 <span>
                                     {summary.saved
-                                        ? `Ритм найден: ${summary.matched}/${calibrationBeats} ударов.`
+                                        ? `Ритм найден: ${summary.matched}/${calibrationTotalBeats} ударов.`
                                         : summary.error ||
-                                          `Калибровка не прошла: ${summary.matched}/${calibrationBeats} ударов; пропусков: ${summary.missed}.`}
+                                          `Калибровка не прошла: ${summary.matched}/${calibrationTotalBeats} ударов; пропусков: ${summary.missed}.`}
                                 </span>
                                 <span>Задержка: {summary.latencyMs} мс</span>
                                 <span>Лишних атак: {summary.falsePositives}</span>

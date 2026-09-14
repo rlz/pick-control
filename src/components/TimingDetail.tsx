@@ -6,6 +6,7 @@ type Props = {
     measure: number
     notes: ExerciseNote[]
     hits: PlayerHit[]
+    previousHits: PlayerHit[][]
     slots: number
     beats: number
     measureMs: number
@@ -19,6 +20,7 @@ export function TimingDetail({
     measure,
     notes,
     hits,
+    previousHits,
     slots,
     beats,
     measureMs,
@@ -27,12 +29,19 @@ export function TimingDetail({
     onEdit,
     isEditingDisabled,
 }: Props) {
+    const edgeAllowanceMs = 120
+    const timelineWidthMs = measureMs + edgeAllowanceMs * 2
+    const timelineStart = (edgeAllowanceMs / timelineWidthMs) * 100
+    const timelineSpan = (measureMs / timelineWidthMs) * 100
+    const markerPosition = (hit: PlayerHit) =>
+        ((hit.time - measure * measureMs + edgeAllowanceMs) / timelineWidthMs) * 100
     const isOnTime = (hit: PlayerHit) =>
         notes
             .filter((note) => !note.isRest)
             .some(
                 (note) =>
-                    Math.abs((hit.time % measureMs) - (note.position / slots) * measureMs) < 150,
+                    Math.abs(hit.time - measure * measureMs - (note.position / slots) * measureMs) <
+                    150,
             )
 
     return (
@@ -50,10 +59,14 @@ export function TimingDetail({
                     <FontAwesomeIcon icon={isPreviewing ? faStop : faPlay} />
                 </button>
             </div>
-            <div className="timeline min-w-28 flex-1 sm:min-w-35">
+            <div className="min-w-28 flex-1 sm:min-w-35">
+                <div className="timeline">
                 <div className="axis">
                     {Array.from({ length: beats + 1 }, (_, index) => (
-                        <span key={index} style={{ left: `${(index / beats) * 100}%` }}>
+                        <span
+                            key={index}
+                            style={{ left: `${timelineStart + (index / beats) * timelineSpan}%` }}
+                        >
                             {index + 1}
                         </span>
                     ))}
@@ -62,7 +75,7 @@ export function TimingDetail({
                     <i
                         key={index}
                         className={`subdivision ${index % 4 === 0 ? 'beat' : index % 2 === 0 ? 'eighth' : 'sixteenth'}`}
-                        style={{ left: `${(index / slots) * 100}%` }}
+                        style={{ left: `${timelineStart + (index / slots) * timelineSpan}%` }}
                     />
                 ))}
                 {notes
@@ -72,8 +85,8 @@ export function TimingDetail({
                             className={`rhythm-bar ${note.palmMuted ? 'palm-muted' : ''}`}
                             key={note.id}
                             style={{
-                                left: `${(note.position / slots) * 100}%`,
-                                width: `${(note.duration / slots) * 100}%`,
+                                left: `${timelineStart + (note.position / slots) * timelineSpan}%`,
+                                width: `${(note.duration / slots) * timelineSpan}%`,
                             }}
                             title={`${note.palmMuted ? 'Palm mute · ' : ''}Target: ${((note.position / slots) * 4 + 1).toFixed(2)}`}
                         />
@@ -82,9 +95,24 @@ export function TimingDetail({
                     <span
                         className={`marker player ${isOnTime(hit) ? 'correct' : 'incorrect'}`}
                         key={hitIndex}
-                        style={{ left: `${((hit.time % measureMs) / measureMs) * 100}%` }}
+                        style={{ left: `${markerPosition(hit)}%` }}
                         title={isOnTime(hit) ? 'On time' : 'Off beat'}
                     />
+                ))}
+                </div>
+                {previousHits.map((runHits, runIndex) => (
+                    <div className="loop-timeline" key={runIndex}>
+                        <span>#{runIndex + 1}</span>
+                        <div>
+                            {runHits.map((hit, hitIndex) => (
+                                <i
+                                    className={isOnTime(hit) ? 'correct' : 'incorrect'}
+                                    key={hitIndex}
+                                    style={{ left: `${markerPosition(hit)}%` }}
+                                />
+                            ))}
+                        </div>
+                    </div>
                 ))}
             </div>
             <button

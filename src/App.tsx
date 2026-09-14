@@ -39,6 +39,12 @@ import { presetToExercise, type StickControlPreset } from './domain/stickControl
 
 const currentTime = () => performance.now()
 
+type CompletedLoopRun = {
+    startedAt: number
+    duration: number
+    hits: PlayerHit[]
+}
+
 function rangeStyle(value: number, min: number, max: number): CSSProperties {
     return {
         '--range-value-position': `${((value - min) / (max - min)) * 100}%`,
@@ -51,13 +57,14 @@ function App() {
         storedExercise
     const exercise: ExerciseNote[] = storedExercise.exercise.map((note) => ({ ...note }))
     const [hits, setHits] = useState<PlayerHit[]>([])
+    const [loopRuns, setLoopRuns] = useState<PlayerHit[][]>([])
     const [state, setState] = useState<'ready' | 'count-in' | 'playing' | 'finished'>('ready')
     const [countInBeat, setCountInBeat] = useState(0)
     const [selectedMeasure, setSelectedMeasure] = useState<number | null>(null)
     const [activeSlot, setActiveSlot] = useState(-1)
     const [activeMeasure, setActiveMeasure] = useState(-1)
     const [previewing, setPreviewing] = useState<'all' | number | null>(null)
-    const [isLooping, setIsLooping] = useState(false)
+    const [isLooping, setIsLooping] = useState(() => tempoProgram !== 'steady')
     const [settingsOpen, setSettingsOpen] = useState(false)
     const [tempoOpen, setTempoOpen] = useState(false)
     const [calibrationOpen, setCalibrationOpen] = useState(false)
@@ -69,8 +76,10 @@ function App() {
     const recordingRequest = useRef(0)
     const metronome = useRef(new Metronome())
     const startedAt = useRef(0)
+    const hitsRef = useRef<PlayerHit[]>([])
+    const completedLoopRuns = useRef<CompletedLoopRun[]>([])
     const timer = useRef<number | null>(null)
-    const isLoopingRef = useRef(false)
+    const isLoopingRef = useRef(tempoProgram !== 'steady')
     const tempoRun = useRef<{
         bpm: number
         baseBpm: number
@@ -91,6 +100,7 @@ function App() {
     const measureMs = beatMs * spec.beats
     const countInBeats = Number(signature.split('/')[0])
     const exerciseBeats = spec.beats * measures
+    const isTempoLoop = tempoProgram !== 'steady'
 
     useEffect(
         () => () => {
@@ -136,7 +146,7 @@ function App() {
         setSelectedMeasure(null)
         setSettingsOpen(false)
     }
-    function reset() {
+    function reset(clearLoopHistory = true) {
         recordingRequest.current++
         stopPreview()
         cleanup.current?.()
@@ -144,6 +154,11 @@ function App() {
         metronome.current.stop()
         if (timer.current) clearTimeout(timer.current)
         setHits([])
+        hitsRef.current = []
+        if (clearLoopHistory) {
+            setLoopRuns([])
+            completedLoopRuns.current = []
+        }
         setState('ready')
         setCountInBeat(0)
         setActiveSlot(-1)
@@ -296,6 +311,7 @@ function App() {
     }
     async function startExercise() {
         reset()
+        setSelectedMeasure(null)
         const request = ++recordingRequest.current
         setCalibrationOpen(false)
         setTempoOpen(false)
@@ -312,11 +328,36 @@ function App() {
         try {
             const calibration = getAudioCalibration()
             const stopListening = await listenForOnsets(
-                (strength) => {
-                    const time =
-                        performance.now() - startedAt.current - (calibration?.latencyMs ?? 0)
-                    if (startedAt.current > 0 && time < activeRunMs.current) {
-                        setHits((previous) => [...previous, { time, strength }])
+                (strength, detectedAt) => {
+                    const calibrationLatency = calibration?.latencyMs ?? 0
+                    const historicalRun = completedLoopRuns.current.find(
+                        (run) =>
+                            detectedAt >= run.startedAt &&
+                            detectedAt < run.startedAt + run.duration,
+                    )
+                    if (historicalRun) {
+                        historicalRun.hits.push({
+                            time: detectedAt - historicalRun.startedAt - calibrationLatency,
+                            strength,
+                        })
+                        setLoopRuns(completedLoopRuns.current.map((run) => [...run.hits]))
+                        return
+                    }
+                    const detectedTime = detectedAt - startedAt.current - calibrationLatency
+                    // The first audio block can begin a few milliseconds before
+                    // the visual zero after latency correction. Keep that attack
+                    // and pin it to the first beat instead of silently dropping it.
+                    if (
+                        startedAt.current > 0 &&
+                        detectedTime >= -120 &&
+                        detectedTime < activeRunMs.current
+                    ) {
+                        const hit = { time: Math.max(0, detectedTime), strength }
+                        setHits((previous) => {
+                            const next = [...previous, hit]
+                            hitsRef.current = next
+                            return next
+                        })
                     }
                 },
                 {
@@ -375,6 +416,14 @@ function App() {
                 (isLoopingRef.current || tempoRun.current?.program === 'increase-and-return')
             ) {
                 if (request !== recordingRequest.current) return
+                metronome.current.stop()
+                completedLoopRuns.current.push({
+                    startedAt: startedAt.current,
+                    duration: runMs,
+                    hits: hitsRef.current,
+                })
+                setLoopRuns(completedLoopRuns.current.map((run) => [...run.hits]))
+                hitsRef.current = []
                 setHits([])
                 startedAt.current = currentTime()
                 setActiveMeasure(0)
@@ -386,7 +435,10 @@ function App() {
                 return
             }
             metronome.current.stop()
-            cleanup.current?.()
+            // Keep the microphone alive long enough to drain the detector's
+            // one-second analysis buffer, so final notes can still be scored.
+            const stopListening = cleanup.current
+            window.setTimeout(() => stopListening?.(), 1050)
             if (progressFrame.current) cancelAnimationFrame(progressFrame.current)
             setState('finished')
             setActiveSlot(-1)
@@ -401,8 +453,11 @@ function App() {
         if (run.program === 'increase-and-return') {
             if (!run.returning && run.bpm >= run.ceiling) run.returning = true
             if (run.returning) {
-                if (run.bpm <= run.baseBpm) return null
-                run.bpm = Math.max(run.baseBpm, run.bpm - run.step)
+                if (run.bpm <= run.baseBpm) {
+                    return null
+                } else {
+                    run.bpm = Math.max(run.baseBpm, run.bpm - run.step)
+                }
             } else {
                 run.bpm = Math.min(run.ceiling, run.bpm + run.step)
             }
@@ -412,6 +467,7 @@ function App() {
         return run.bpm
     }
     function toggleLooping() {
+        if (isTempoLoop) return
         setIsLooping((previous) => {
             const next = !previous
             isLoopingRef.current = next
@@ -420,8 +476,22 @@ function App() {
     }
     const measureHits = (i: number) =>
         hits.filter((hit) => hit.time >= i * measureMs && hit.time < (i + 1) * measureMs)
+    const timingHits = (source: PlayerHit[], i: number) => {
+        const edgeAllowanceMs = 120
+        return source.filter(
+            (hit) =>
+                hit.time >= i * measureMs - edgeAllowanceMs &&
+                hit.time <= (i + 1) * measureMs + edgeAllowanceMs,
+        )
+    }
     return (
-        <main className="grid h-dvh grid-rows-[3.5rem_minmax(0,1fr)_5.5rem] overflow-hidden bg-slate-950 text-slate-100 md:grid-rows-[4rem_minmax(0,1fr)_6rem]">
+        <main
+            className={`grid h-dvh overflow-hidden bg-slate-950 text-slate-100 ${
+                loopRuns.length
+                    ? 'grid-rows-[3.5rem_minmax(0,1fr)_auto] md:grid-rows-[4rem_minmax(0,1fr)_auto]'
+                    : 'grid-rows-[3.5rem_minmax(0,1fr)_5.5rem] md:grid-rows-[4rem_minmax(0,1fr)_6rem]'
+            }`}
+        >
             <header className="relative z-30 flex items-center overflow-visible border-b border-slate-800 bg-slate-900/90 px-5 backdrop-blur md:px-7">
                 <div className="flex items-center gap-2 text-lg font-bold tracking-tight text-indigo-300">
                     <span className="grid size-8 place-items-center rounded-lg bg-indigo-400/15 text-xl">
@@ -483,17 +553,20 @@ function App() {
                                     Tempo program
                                     <select
                                         value={tempoProgram}
-                                        onChange={(event) =>
-                                            setTempoProgram(
-                                                event.target.value as typeof tempoProgram,
-                                            )
-                                        }
+                                        onChange={(event) => {
+                                            const nextProgram = event.target.value as typeof tempoProgram
+                                            setTempoProgram(nextProgram)
+                                            if (nextProgram !== 'steady') {
+                                                isLoopingRef.current = true
+                                                setIsLooping(true)
+                                            }
+                                        }}
                                         disabled={state === 'count-in' || state === 'playing'}
                                     >
                                         <option value="steady">Keep tempo</option>
                                         <option value="increase">Increase on each loop</option>
                                         <option value="increase-and-return">
-                                            Increase, return, and stop
+                                            Increase, then return
                                         </option>
                                     </select>
                                 </label>
@@ -621,7 +694,10 @@ function App() {
                         <TimingDetail
                             measure={selectedMeasure}
                             notes={exercise.filter((n) => n.measure === selectedMeasure)}
-                            hits={measureHits(selectedMeasure)}
+                            hits={timingHits(hits, selectedMeasure)}
+                            previousHits={loopRuns.map((run) =>
+                                timingHits(run, selectedMeasure),
+                            )}
                             slots={spec.slots}
                             beats={spec.beats}
                             measureMs={measureMs}
@@ -638,11 +714,22 @@ function App() {
                             className="icon-button"
                             type="button"
                             onClick={toggleLooping}
+                            disabled={isTempoLoop}
                             aria-label={
-                                isLooping ? 'Disable exercise loop' : 'Enable exercise loop'
+                                isTempoLoop
+                                    ? 'Loop is required by the tempo program'
+                                    : isLooping
+                                      ? 'Disable exercise loop'
+                                      : 'Enable exercise loop'
                             }
                             aria-pressed={isLooping}
-                            title={isLooping ? 'Disable exercise loop' : 'Loop exercise'}
+                            title={
+                                isTempoLoop
+                                    ? 'Loop is required by the tempo program'
+                                    : isLooping
+                                      ? 'Disable exercise loop'
+                                      : 'Loop exercise'
+                            }
                         >
                             <FontAwesomeIcon icon={faRepeat} />
                         </button>
@@ -665,7 +752,7 @@ function App() {
                     <div className="flex flex-col items-center gap-1">
                         <button
                             className="icon-button"
-                            onClick={reset}
+                            onClick={() => reset()}
                             disabled={state === 'ready'}
                             aria-label="Repeat exercise"
                             title="Repeat exercise"
@@ -678,7 +765,9 @@ function App() {
                         <button
                             className="icon-button primary"
                             onClick={
-                                state === 'count-in' || state === 'playing' ? reset : startExercise
+                                state === 'count-in' || state === 'playing'
+                                    ? () => reset(false)
+                                    : startExercise
                             }
                             aria-label={
                                 state === 'count-in' || state === 'playing'

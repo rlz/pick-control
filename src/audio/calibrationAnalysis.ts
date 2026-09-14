@@ -21,7 +21,7 @@ export async function analyseCalibrationRecording(blob: Blob, startedAt: number)
         const filtered = await offline.startRendering()
         const samples = filtered.getChannelData(0)
         const sourceSamples = decoded.getChannelData(0)
-        const frameSize = 512
+        const frameSize = 1024
         // The live analyser is sampled once per animation frame, close to 60 Hz.
         const hopSize = Math.max(frameSize, Math.round(decoded.sampleRate / 60))
         const frames: AudioFrame[] = []

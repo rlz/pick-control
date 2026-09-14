@@ -1,5 +1,5 @@
 import { defaultDetectorParameters, type DetectorParameters } from './calibration'
-import { OnsetDetector, type DetectedAttack } from './detector'
+import { OnsetDetector, type AudioFrame, type DetectedAttack } from './detector'
 
 export type AudioLevel = {
     rms: number
@@ -21,7 +21,7 @@ export type OnsetDetectionOptions = {
 }
 
 export async function listenForOnsets(
-    onOnset: (strength: number) => void,
+    onOnset: (strength: number, time: number) => void,
     {
         deviceId,
         onLevel,
@@ -66,14 +66,30 @@ export async function listenForOnsets(
     // rejects most of the ringing note without throwing that transient away.
     attackFilter.frequency.value = 1200
     attackFilter.Q.value = 0.7
-    const attackAnalyser = context.createAnalyser()
-    attackAnalyser.fftSize = 512
+    // ScriptProcessor gives fixed, contiguous audio buffers. Keeping them for
+    // a moment before processing avoids making onset decisions mid-transient.
+    const frameProcessor = context.createScriptProcessor(1024, 1, 1)
+    const silentOutput = context.createGain()
+    silentOutput.gain.value = 0
     source.connect(levelAnalyser)
-    source.connect(attackFilter).connect(attackAnalyser)
+    source.connect(attackFilter).connect(frameProcessor).connect(silentOutput).connect(context.destination)
 
     const values = new Uint8Array(levelAnalyser.fftSize)
-    const attackValues = new Uint8Array(attackAnalyser.fftSize)
     const onsetDetector = new OnsetDetector()
+    const bufferedFrames: AudioFrame[] = []
+    let nextBufferedFrame = 0
+    const analysisDelayMs = 1000
+    frameProcessor.onaudioprocess = (event) => {
+        const samples = event.inputBuffer.getChannelData(0)
+        let energy = 0
+        for (const sample of samples) energy += sample * sample
+        const attackStrength = Math.sqrt(energy / samples.length)
+        bufferedFrames.push({
+            time: performance.now(),
+            strength: attackStrength,
+            attackStrength,
+        })
+    }
     let running = true
     const loop = () => {
         if (!running) return
@@ -88,16 +104,11 @@ export async function listenForOnsets(
         const strength = Math.sqrt(energy / values.length)
         onLevel?.({ rms: strength, peak })
 
-        attackAnalyser.getByteTimeDomainData(attackValues)
-        let attackEnergy = 0
-        for (const value of attackValues) {
-            const normalized = (value - 128) / 128
-            attackEnergy += normalized * normalized
-        }
-        const attackStrength = Math.sqrt(attackEnergy / attackValues.length)
         const now = performance.now()
         if (consumeResetDetector?.() || (isDetecting && !isDetecting())) {
             onsetDetector.reset()
+            bufferedFrames.length = 0
+            nextBufferedFrame = 0
             requestAnimationFrame(loop)
             return
         }
@@ -106,17 +117,19 @@ export async function listenForOnsets(
             ...detector,
             ...getDetector?.(),
         }
-        const attack = onsetDetector.process(
-            {
-            time: now,
-            strength,
-            attackStrength,
-            },
-            parameters,
-        )
-        if (attack) {
-            onOnset(attack.strength)
-            onAttack?.(attack)
+        while (
+            nextBufferedFrame < bufferedFrames.length &&
+            bufferedFrames[nextBufferedFrame].time <= now - analysisDelayMs
+        ) {
+            const attack = onsetDetector.process(bufferedFrames[nextBufferedFrame++], parameters)
+            if (attack) {
+                onOnset(attack.strength, attack.time)
+                onAttack?.(attack)
+            }
+        }
+        if (nextBufferedFrame > 256) {
+            bufferedFrames.splice(0, nextBufferedFrame)
+            nextBufferedFrame = 0
         }
         requestAnimationFrame(loop)
     }
