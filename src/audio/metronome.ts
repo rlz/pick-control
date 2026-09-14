@@ -22,17 +22,23 @@ export class Metronome {
         oscillator.stop(context.currentTime + 0.07)
     }
 
-    start(intervalMs: number | (() => number), onBeat: (beat: number) => void) {
+    start(intervalMs: number | (() => number), onBeat: (beat: number, playedAt: number) => void) {
         this.stop()
         const runId = ++this.runId
         let beat = 0
+        let nextBeatAt = performance.now()
         const tick = () => {
             if (runId !== this.runId) return
+            const playedAt = performance.now()
             this.click(beat % 4 === 0)
-            onBeat(beat++)
+            onBeat(beat++, playedAt)
             if (runId !== this.runId) return
             const nextInterval = typeof intervalMs === 'function' ? intervalMs() : intervalMs
-            this.timer = window.setTimeout(tick, nextInterval)
+            // Schedule from the original beat grid rather than from the time
+            // this callback happened to run. Browser timer jitter then cannot
+            // accumulate and make the clicks drift from the score timeline.
+            nextBeatAt += nextInterval
+            this.timer = window.setTimeout(tick, Math.max(0, nextBeatAt - performance.now()))
         }
         tick()
     }

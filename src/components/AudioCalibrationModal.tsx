@@ -38,6 +38,7 @@ type CalibrationSummary = {
 
 const meterFloorDb = -60
 const timelineWindowMs = 4000
+const timelineLatestOffsetMs = 1000
 const calibrationBpms = [90] as const
 const calibrationBeatsPerTempo = 16
 const calibrationTotalBeats = calibrationBpms.length * calibrationBeatsPerTempo
@@ -212,11 +213,7 @@ export function AudioCalibrationModal({ onClose }: Props) {
         // each detected attack with only one metronome beat, then centre the
         // stricter pass around the measured latency instead of assuming the
         // attack must happen after the click.
-        const matchBeats = (
-            detected: DetectedAttack[],
-            latencyMs: number,
-            windowMs: number,
-        ) => {
+        const matchBeats = (detected: DetectedAttack[], latencyMs: number, windowMs: number) => {
             const usedAttackTimes = new Set<number>()
             return beatTimes.current
                 .map((beatTime) => {
@@ -265,7 +262,11 @@ export function AudioCalibrationModal({ onClose }: Props) {
             const sharedDetector = new OnsetDetector()
             const detected = recordedFrames.flatMap((frame) => {
                 const attack = sharedDetector.process(frame, profile)
-                if (!attack || attack.time < firstBeat - initialMatchWindowMs || attack.time > lastBeat + initialMatchWindowMs) {
+                if (
+                    !attack ||
+                    attack.time < firstBeat - initialMatchWindowMs ||
+                    attack.time > lastBeat + initialMatchWindowMs
+                ) {
                     return []
                 }
                 return [attack]
@@ -418,10 +419,11 @@ export function AudioCalibrationModal({ onClose }: Props) {
         })
     }
 
-    const rmsPercent = toMeterPercent(level.rms)
-    const peakPercent = toMeterPercent(level.peak)
-    const rmsDb = toDecibels(level.rms)
-    const visibleEvents = events.filter((event) => timelineNow - event.time <= timelineWindowMs)
+    const levelPercent = toMeterPercent(level.peak)
+    const levelDb = toDecibels(level.peak)
+    const visibleEvents = events.filter(
+        (event) => timelineNow - event.time <= timelineWindowMs + timelineLatestOffsetMs,
+    )
     const recentlyDetected = visibleEvents.some((event) => timelineNow - event.time < 500)
 
     return (
@@ -472,11 +474,10 @@ export function AudioCalibrationModal({ onClose }: Props) {
                     <div className="signal-panel">
                         <div className="signal-panel-heading">
                             <span>Уровень</span>
-                            <output>{rmsDb.toFixed(0)} dBFS</output>
+                            <output>{levelDb.toFixed(0)} dBFS</output>
                         </div>
                         <div className="level-meter" aria-label="Текущий уровень входного сигнала">
-                            <b style={{ width: `${rmsPercent}%` }} />
-                            <em style={{ left: `${peakPercent}%` }} />
+                            <b style={{ width: `${levelPercent}%` }} />
                         </div>
                         <p>
                             {status === 'connecting'
@@ -491,7 +492,8 @@ export function AudioCalibrationModal({ onClose }: Props) {
                         <div className="calibration-start">
                             <p>
                                 После четырёхдольного отсчёта сыграйте 16 ровных ударов под метроном
-                                90 BPM. Профиль сохранится только при 16 точных срабатываниях без лишних.
+                                90 BPM. Профиль сохранится только при 16 точных срабатываниях без
+                                лишних.
                             </p>
                             <button
                                 className="secondary calibration-action"
@@ -527,12 +529,12 @@ export function AudioCalibrationModal({ onClose }: Props) {
                                     aria-label="Временная шкала распознанных ударов; новые появляются справа и движутся влево"
                                 >
                                     <div className="detection-timeline-axis" aria-hidden="true">
-                                        {[4, 3, 2, 1, 0].map((seconds) => (
+                                        {[5, 4, 3, 2, 1].map((seconds) => (
                                             <span
                                                 key={seconds}
-                                                style={{ left: `${(4 - seconds) * 25}%` }}
+                                                style={{ left: `${((5 - seconds) / 4) * 100}%` }}
                                             >
-                                                {seconds ? `−${seconds} с` : 'сейчас'}
+                                                −{seconds} с
                                             </span>
                                         ))}
                                     </div>
@@ -545,12 +547,17 @@ export function AudioCalibrationModal({ onClose }: Props) {
                                                 className="detection-timeline-hit"
                                                 key={event.id}
                                                 style={{
-                                                    left: `${Math.max(
-                                                        0,
-                                                        100 -
-                                                            ((timelineNow - event.time) /
-                                                                timelineWindowMs) *
-                                                                100,
+                                                    left: `${Math.min(
+                                                        100,
+                                                        Math.max(
+                                                            0,
+                                                            100 -
+                                                                ((timelineNow -
+                                                                    event.time -
+                                                                    timelineLatestOffsetMs) /
+                                                                    timelineWindowMs) *
+                                                                    100,
+                                                        ),
                                                     )}%`,
                                                 }}
                                                 title={`Удар: ${event.strength.toFixed(3)}`}

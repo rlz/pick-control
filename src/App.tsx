@@ -104,6 +104,55 @@ function App() {
     const exerciseBeats = spec.beats * measures
     const isTempoLoop = tempoProgram !== 'steady'
 
+    // A screen wake lock is released whenever the document becomes hidden.
+    // Keep it requested for the complete run (including the count-in), and
+    // request it again when the player returns to the app.
+    useEffect(() => {
+        const keepScreenAwake = state === 'count-in' || state === 'playing'
+        if (!keepScreenAwake || !('wakeLock' in navigator)) return
+
+        let cancelled = false
+        let wakeLock: WakeLockSentinel | null = null
+
+        const release = () => {
+            if (!wakeLock) return
+            const sentinel = wakeLock
+            wakeLock = null
+            void sentinel.release()
+        }
+
+        const requestWakeLock = async () => {
+            if (cancelled || wakeLock || document.visibilityState !== 'visible') return
+
+            try {
+                const sentinel = await navigator.wakeLock.request('screen')
+                if (cancelled || document.visibilityState !== 'visible') {
+                    void sentinel.release()
+                    return
+                }
+                wakeLock = sentinel
+                sentinel.addEventListener('release', () => {
+                    if (wakeLock === sentinel) wakeLock = null
+                })
+            } catch {
+                // Wake Lock is optional: unsupported browsers and denied requests
+                // should not prevent an exercise from running.
+            }
+        }
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') void requestWakeLock()
+        }
+
+        void requestWakeLock()
+        document.addEventListener('visibilitychange', handleVisibilityChange)
+        return () => {
+            cancelled = true
+            document.removeEventListener('visibilitychange', handleVisibilityChange)
+            release()
+        }
+    }, [state])
+
     useEffect(
         () => () => {
             recordingRequest.current++
@@ -184,6 +233,7 @@ function App() {
         setSettingsOpen(false)
     }
     function reset(clearLoopHistory = true) {
+        if (!clearLoopHistory) saveActiveRun()
         recordingRequest.current++
         stopPreview()
         cleanup.current?.()
@@ -204,6 +254,28 @@ function App() {
         tempoRun.current = null
         activeRunMs.current = 0
         startedAt.current = 0
+    }
+    function addLoopRun(run: CompletedLoopRun) {
+        completedLoopRuns.current.push(run)
+        setLoopRuns(completedLoopRuns.current.map((entry) => ({ ...entry, hits: [...entry.hits] })))
+    }
+    function saveActiveRun() {
+        if (startedAt.current <= 0 || activeRunMs.current <= 0) return
+
+        const duration = Math.min(
+            activeRunMs.current,
+            Math.max(0, currentTime() - startedAt.current),
+        )
+        if (duration <= 0) return
+
+        const measureMs = activeRunMs.current / measures
+        addLoopRun({
+            startedAt: startedAt.current,
+            duration,
+            measureMs,
+            bpm: tempoRun.current?.bpm ?? activeBpm ?? bpm,
+            hits: hitsRef.current.filter((hit) => hit.time < duration),
+        })
     }
     function openMeasureEditor() {
         if (selectedMeasure === null || state === 'count-in' || state === 'playing') return
@@ -415,12 +487,12 @@ function App() {
             cleanup.current = stopListening
             metronome.current.start(
                 () => 60000 / (tempoRun.current?.bpm ?? bpm),
-                (beat) => {
+                (beat, playedAt) => {
                     if (request !== recordingRequest.current) return
                     if (beat < countInBeats) {
                         setCountInBeat(beat + 1)
                     } else if (beat === countInBeats) {
-                        beginRecording(request)
+                        beginRecording(request, playedAt)
                     }
                     if (beat - countInBeats === exerciseBeats - 1) {
                         metronome.current.stop()
@@ -433,20 +505,23 @@ function App() {
             alert('Microphone permission is needed to listen to your playing.')
         }
     }
-    function beginRecording(request: number) {
-        startedAt.current = currentTime()
+    function beginRecording(request: number, playedAt = currentTime()) {
+        startedAt.current = playedAt
         setState('playing')
         showProgress(startedAt.current, 0, measures)
         scheduleExerciseEnd(tempoRun.current?.bpm ?? bpm, request)
     }
     function startWorkingMetronome(request: number) {
+        let firstBeatAt = 0
         metronome.current.start(
             () => 60000 / (tempoRun.current?.bpm ?? bpm),
-            (beat) => {
+            (beat, playedAt) => {
                 if (request !== recordingRequest.current) return
+                if (beat === 0) firstBeatAt = playedAt
                 if (beat === exerciseBeats - 1) metronome.current.stop()
             },
         )
+        return firstBeatAt
     }
     function scheduleExerciseEnd(runBpm: number, request: number) {
         const runMs = (60000 / runBpm) * spec.beats * measures
@@ -459,24 +534,20 @@ function App() {
             ) {
                 if (request !== recordingRequest.current) return
                 metronome.current.stop()
-                completedLoopRuns.current.push({
+                addLoopRun({
                     startedAt: startedAt.current,
                     duration: runMs,
                     measureMs: runMs / measures,
                     bpm: runBpm,
                     hits: hitsRef.current,
                 })
-                setLoopRuns(
-                    completedLoopRuns.current.map((run) => ({ ...run, hits: [...run.hits] })),
-                )
                 hitsRef.current = []
                 setHits([])
-                startedAt.current = currentTime()
+                startedAt.current = startWorkingMetronome(request)
                 setActiveMeasure(0)
                 setActiveSlot(-1)
                 setActiveBpm(nextBpm)
                 showProgress(startedAt.current, 0, measures, (60000 / nextBpm) * spec.beats)
-                startWorkingMetronome(request)
                 scheduleExerciseEnd(nextBpm, request)
                 return
             }
@@ -522,10 +593,10 @@ function App() {
     }
     const timingHits = (source: PlayerHit[], i: number, sourceMeasureMs = measureMs) => {
         const edgeAllowanceMs = 120
+        const measureStart = i * sourceMeasureMs
+        const measureEnd = (i + 1) * sourceMeasureMs
         return source.filter(
-            (hit) =>
-                hit.time >= i * sourceMeasureMs - edgeAllowanceMs &&
-                hit.time < (i + 1) * sourceMeasureMs,
+            (hit) => hit.time >= measureStart - edgeAllowanceMs && hit.time < measureEnd,
         )
     }
     return (
