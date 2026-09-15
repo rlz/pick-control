@@ -5,12 +5,27 @@ import type { ExerciseNote, PickStroke, TimeSignature } from '../types'
 
 const STORAGE_KEY = 'taktcontrol.exercise.v1'
 const LEGACY_STORAGE_KEY = 'rithme.exercise.v1'
+const FAVORITES_STORAGE_KEY = 'taktcontrol.favorite-exercises.v1'
 export const MIN_BPM = 45
 export const MAX_BPM = 180
 export const MIN_TEMPO_STEP = 1
 export const MAX_TEMPO_STEP = 20
 
 export type TempoProgram = 'steady' | 'increase' | 'increase-and-return'
+export type ExerciseSource = 'manual' | 'preset' | 'generator' | 'favorite'
+type FavoriteSource = Exclude<ExerciseSource, 'favorite'>
+
+export type FavoriteExercise = {
+    id: string
+    comment: string
+    addedAt: string
+    lastUsedAt: string
+    source: FavoriteSource
+    measures: number
+    generationOptions: GenerationOptions
+    signature: TimeSignature
+    exercise: ExerciseNote[]
+}
 
 type StoredExercise = {
     measures: number
@@ -20,6 +35,9 @@ type StoredExercise = {
     tempoProgram: TempoProgram
     tempoStep: number
     tempoCeiling: number
+    source: ExerciseSource
+    favoriteId?: string
+    comment: string
     exercise: ExerciseNote[]
 }
 
@@ -31,6 +49,8 @@ const defaults = (): StoredExercise => ({
     tempoProgram: 'steady',
     tempoStep: 4,
     tempoCeiling: 120,
+    source: 'generator',
+    comment: '',
     exercise: generateExercise(4, defaultGenerationOptions, '4/4'),
 })
 
@@ -62,6 +82,10 @@ function normalizeTempoProgram(value: unknown): TempoProgram {
     return value === 'increase' || value === 'increase-and-return' ? value : 'steady'
 }
 
+function normalizeExerciseSource(value: unknown): ExerciseSource {
+    return value === 'preset' || value === 'generator' || value === 'favorite' ? value : 'manual'
+}
+
 function loadExercise(): StoredExercise {
     if (typeof window === 'undefined') return defaults()
     try {
@@ -77,6 +101,9 @@ function loadExercise(): StoredExercise {
                   tempoProgram: normalizeTempoProgram(saved.tempoProgram),
                   tempoStep: normalizeTempoStep(saved.tempoStep ?? defaults().tempoStep),
                   tempoCeiling: normalizeBpm(saved.tempoCeiling ?? defaults().tempoCeiling),
+                  source: normalizeExerciseSource(saved.source),
+                  favoriteId: typeof saved.favoriteId === 'string' ? saved.favoriteId : undefined,
+                  comment: typeof saved.comment === 'string' ? saved.comment : '',
               })
             : defaults()
     } catch {
@@ -99,6 +126,45 @@ function withStrokes(stored: StoredExercise): StoredExercise {
 }
 
 export const exerciseStore = proxy<StoredExercise>(loadExercise())
+
+function isFavoriteExercise(value: unknown): value is FavoriteExercise {
+    if (!value || typeof value !== 'object') return false
+    const candidate = value as Partial<FavoriteExercise>
+    return (
+        typeof candidate.id === 'string' &&
+        typeof candidate.comment === 'string' &&
+        typeof candidate.addedAt === 'string' &&
+        typeof candidate.lastUsedAt === 'string' &&
+        (candidate.source === 'manual' ||
+            candidate.source === 'preset' ||
+            candidate.source === 'generator') &&
+        typeof candidate.measures === 'number' &&
+        typeof candidate.generationOptions === 'object' &&
+        candidate.generationOptions !== null &&
+        (candidate.signature === '4/4' ||
+            candidate.signature === '3/4' ||
+            candidate.signature === '6/8') &&
+        Array.isArray(candidate.exercise)
+    )
+}
+
+function loadFavorites(): FavoriteExercise[] {
+    if (typeof window === 'undefined') return []
+    try {
+        const saved = JSON.parse(window.localStorage.getItem(FAVORITES_STORAGE_KEY) ?? '[]')
+        return Array.isArray(saved) ? saved.filter(isFavoriteExercise) : []
+    } catch {
+        return []
+    }
+}
+
+export const favoritesStore = proxy<{ exercises: FavoriteExercise[] }>({
+    exercises: loadFavorites(),
+})
+
+function detachFavorite() {
+    exerciseStore.favoriteId = undefined
+}
 
 export function setBpm(bpm: number) {
     exerciseStore.bpm = normalizeBpm(bpm)
@@ -124,6 +190,8 @@ export function setGenerationOptions(options: GenerationOptions) {
         options,
         exerciseStore.signature,
     )
+    exerciseStore.source = 'generator'
+    detachFavorite()
 }
 
 export function regenerateExercise(
@@ -132,6 +200,8 @@ export function regenerateExercise(
     signature: TimeSignature,
 ) {
     exerciseStore.exercise = generateExercise(measures, options, signature)
+    exerciseStore.source = 'generator'
+    detachFavorite()
 }
 
 export function generateExerciseWithSettings(
@@ -143,12 +213,16 @@ export function generateExerciseWithSettings(
     exerciseStore.generationOptions = options
     exerciseStore.signature = signature
     exerciseStore.exercise = generateExercise(measures, options, signature)
+    exerciseStore.source = 'generator'
+    detachFavorite()
 }
 
 export function setPresetExercise(exercise: ExerciseNote[]) {
     exerciseStore.measures = 2
     exerciseStore.signature = '4/4'
     exerciseStore.exercise = exercise
+    exerciseStore.source = 'preset'
+    detachFavorite()
 }
 
 export function replaceMeasureNotes(measure: number, notes: ExerciseNote[]) {
@@ -156,6 +230,69 @@ export function replaceMeasureNotes(measure: number, notes: ExerciseNote[]) {
         ...exerciseStore.exercise.filter((note) => note.measure !== measure),
         ...notes,
     ].sort((left, right) => left.measure - right.measure || left.position - right.position)
+    exerciseStore.source = 'manual'
+    detachFavorite()
+}
+
+export function setManualExercise(
+    measures: number,
+    signature: TimeSignature,
+    exercise: ExerciseNote[],
+) {
+    exerciseStore.measures = measures
+    exerciseStore.signature = signature
+    exerciseStore.exercise = exercise
+    exerciseStore.source = 'manual'
+    detachFavorite()
+}
+
+export function setExerciseComment(comment: string) {
+    exerciseStore.comment = comment
+    if (exerciseStore.source !== 'favorite' || !exerciseStore.favoriteId) return
+    const favorite = favoritesStore.exercises.find((entry) => entry.id === exerciseStore.favoriteId)
+    if (favorite) favorite.comment = comment
+}
+
+export function addCurrentExerciseToFavorites() {
+    const now = new Date().toISOString()
+    const currentFavorite = favoritesStore.exercises.find(
+        (entry) => entry.id === exerciseStore.favoriteId,
+    )
+    if (currentFavorite) return
+    const favorite: FavoriteExercise = {
+        id: crypto.randomUUID(),
+        comment: exerciseStore.comment,
+        addedAt: now,
+        lastUsedAt: now,
+        source: exerciseStore.source === 'favorite' ? 'manual' : exerciseStore.source,
+        measures: exerciseStore.measures,
+        generationOptions: { ...exerciseStore.generationOptions },
+        signature: exerciseStore.signature,
+        exercise: exerciseStore.exercise.map((note) => ({ ...note })),
+    }
+    favoritesStore.exercises.unshift(favorite)
+    exerciseStore.source = 'favorite'
+    exerciseStore.favoriteId = favorite.id
+}
+
+export function removeFavoriteExercise(id: string) {
+    favoritesStore.exercises = favoritesStore.exercises.filter((favorite) => favorite.id !== id)
+    if (exerciseStore.favoriteId !== id) return
+    exerciseStore.source = 'manual'
+    detachFavorite()
+}
+
+export function loadFavoriteExercise(favorite: FavoriteExercise) {
+    const now = new Date().toISOString()
+    const storedFavorite = favoritesStore.exercises.find((entry) => entry.id === favorite.id)
+    if (storedFavorite) storedFavorite.lastUsedAt = now
+    exerciseStore.measures = favorite.measures
+    exerciseStore.generationOptions = { ...favorite.generationOptions }
+    exerciseStore.signature = favorite.signature
+    exerciseStore.exercise = favorite.exercise.map((note) => ({ ...note }))
+    exerciseStore.comment = favorite.comment
+    exerciseStore.source = 'favorite'
+    exerciseStore.favoriteId = favorite.id
 }
 
 subscribe(exerciseStore, () => {
@@ -163,5 +300,13 @@ subscribe(exerciseStore, () => {
         window.localStorage.setItem(STORAGE_KEY, JSON.stringify(exerciseStore))
     } catch {
         // The exercise remains usable if storage is unavailable or full.
+    }
+})
+
+subscribe(favoritesStore, () => {
+    try {
+        window.localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(favoritesStore.exercises))
+    } catch {
+        // Favorites remain usable for the current session if storage is unavailable or full.
     }
 })

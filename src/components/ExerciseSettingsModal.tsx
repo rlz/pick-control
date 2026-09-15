@@ -1,7 +1,8 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faPlay, faStop, faXmark } from '@fortawesome/free-solid-svg-icons'
+import { faPlay, faStop, faTrash, faXmark } from '@fortawesome/free-solid-svg-icons'
 import { useEffect, useRef, useState } from 'react'
 import type { GenerationOptions } from '../domain/exercise'
+import type { ExerciseSource, FavoriteExercise } from '../store/exerciseStore'
 import {
     presetToExercise,
     stickControlPresets,
@@ -12,12 +13,14 @@ import type { StepKind } from '../domain/measureSteps'
 import { MeasureEditor } from './MeasureEditor'
 import { EngravedMeasure } from './EngravedMeasure'
 
-type Tab = 'manual' | 'presets' | 'generator'
+type Tab = 'manual' | 'presets' | 'generator' | 'favorites'
 
 type Props = {
     measures: number
     signature: TimeSignature
     options: GenerationOptions
+    source: ExerciseSource
+    favorites: FavoriteExercise[]
     onClose: () => void
     manualSteps: StepKind[]
     manualStrokes: (PickStroke | undefined)[]
@@ -31,12 +34,15 @@ type Props = {
     ) => void
     onPreset: (preset: StickControlPreset) => void
     onGenerate: (measures: number, options: GenerationOptions, signature: TimeSignature) => void
+    onFavorite: (favorite: FavoriteExercise) => void
+    onRemoveFavorite: (id: string) => void
 }
 
 const tabs: { id: Tab; label: string }[] = [
     { id: 'manual', label: 'Manual' },
     { id: 'presets', label: 'Presets' },
     { id: 'generator', label: 'Generator' },
+    { id: 'favorites', label: 'Favorites' },
 ]
 
 function PresetNotation({ preset }: { preset: StickControlPreset }) {
@@ -74,10 +80,51 @@ function PresetNotation({ preset }: { preset: StickControlPreset }) {
     )
 }
 
+function FavoriteNotationPreview({ favorite }: { favorite: FavoriteExercise }) {
+    const element = useRef<HTMLDivElement>(null)
+    const [measureWidth, setMeasureWidth] = useState(180)
+    const previewMeasures = Math.min(favorite.measures, 3)
+
+    useEffect(() => {
+        const container = element.current
+        if (!container) return
+
+        const updateWidth = () =>
+            setMeasureWidth(Math.max(96, Math.floor(container.clientWidth / previewMeasures)))
+        updateWidth()
+        const observer = new ResizeObserver(updateWidth)
+        observer.observe(container)
+        return () => observer.disconnect()
+    }, [previewMeasures])
+
+    return (
+        <div
+            className="exercise-notation-preview"
+            ref={element}
+            aria-label="Exercise notation preview"
+        >
+            {Array.from({ length: previewMeasures }, (_, measure) => (
+                <EngravedMeasure
+                    key={measure}
+                    measureNumber={measure + 1}
+                    showMeasureNumber={false}
+                    notes={favorite.exercise.filter((note) => note.measure === measure)}
+                    signature={favorite.signature}
+                    width={measureWidth}
+                    scale={1}
+                    activeSlot={-1}
+                />
+            ))}
+        </div>
+    )
+}
+
 export function ExerciseSettingsModal({
     measures,
     signature,
     options,
+    source,
+    favorites,
     onClose,
     manualSteps,
     manualStrokes,
@@ -86,8 +133,18 @@ export function ExerciseSettingsModal({
     onManualSave,
     onPreset,
     onGenerate,
+    onFavorite,
+    onRemoveFavorite,
 }: Props) {
-    const [tab, setTab] = useState<Tab>('manual')
+    const [tab, setTab] = useState<Tab>(() =>
+        source === 'preset'
+            ? 'presets'
+            : source === 'generator'
+              ? 'generator'
+              : source === 'favorite'
+                ? 'favorites'
+                : 'manual',
+    )
     const [generatorMeasures, setGeneratorMeasures] = useState(measures)
     const [generatorSignature, setGeneratorSignature] = useState(signature)
     const [generatorOptions, setGeneratorOptions] = useState(options)
@@ -316,6 +373,47 @@ export function ExerciseSettingsModal({
                                     </label>
                                 ))}
                             </fieldset>
+                        </div>
+                    ) : null}
+                    {tab === 'favorites' ? (
+                        <div className="favorites-list">
+                            {favorites.length ? (
+                                favorites.map((favorite) => (
+                                    <div className="favorite-exercise" key={favorite.id}>
+                                        <button
+                                            className="favorite-exercise-open"
+                                            type="button"
+                                            onClick={() => onFavorite(favorite)}
+                                        >
+                                            <strong>
+                                                {favorite.comment || 'Untitled exercise'}
+                                            </strong>
+                                            <span>
+                                                {favorite.signature} · {favorite.measures} measures
+                                                · {favorite.source}
+                                            </span>
+                                            <small>
+                                                Added{' '}
+                                                {new Date(favorite.addedAt).toLocaleDateString()} ·
+                                                Last used{' '}
+                                                {new Date(favorite.lastUsedAt).toLocaleDateString()}
+                                            </small>
+                                            <FavoriteNotationPreview favorite={favorite} />
+                                        </button>
+                                        <button
+                                            className="favorite-remove"
+                                            type="button"
+                                            onClick={() => onRemoveFavorite(favorite.id)}
+                                            aria-label="Remove favorite exercise"
+                                            title="Remove from favorites"
+                                        >
+                                            <FontAwesomeIcon icon={faTrash} />
+                                        </button>
+                                    </div>
+                                ))
+                            ) : (
+                                <p className="favorites-empty">No favorite exercises yet.</p>
+                            )}
                         </div>
                     ) : null}
                 </div>

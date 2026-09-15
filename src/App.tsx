@@ -3,10 +3,12 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
     faGear,
     faMicrophone,
+    faPen,
     faPlay,
     faRepeat,
     faRotateRight,
     faStop,
+    faStar,
     faVolumeHigh,
 } from '@fortawesome/free-solid-svg-icons'
 import { useSnapshot } from 'valtio'
@@ -21,7 +23,9 @@ import { TimingDetail } from './components/TimingDetail'
 import { signatures } from './domain/exercise'
 import type { GenerationOptions } from './domain/exercise'
 import {
+    addCurrentExerciseToFavorites,
     exerciseStore,
+    favoritesStore,
     generateExerciseWithSettings,
     MAX_BPM,
     MIN_BPM,
@@ -29,15 +33,27 @@ import {
     MIN_TEMPO_STEP,
     replaceMeasureNotes,
     setBpm,
+    setExerciseComment,
+    setManualExercise,
     setPresetExercise,
     setTempoCeiling,
     setTempoProgram,
     setTempoStep,
+    loadFavoriteExercise,
+    removeFavoriteExercise,
 } from './store/exerciseStore'
+import type { FavoriteExercise } from './store/exerciseStore'
 import type { ExerciseNote, PickStroke, PlayerHit, TimeSignature } from './types'
 import { presetToExercise, type StickControlPreset } from './domain/stickControlPresets'
 
 const currentTime = () => performance.now()
+
+const exerciseSourceLabels = {
+    manual: 'Manual',
+    preset: 'Preset',
+    generator: 'Random generation',
+    favorite: 'Favorite',
+} as const
 
 type CompletedLoopRun = {
     startedAt: number
@@ -55,9 +71,16 @@ function rangeStyle(value: number, min: number, max: number): CSSProperties {
 
 function App() {
     const storedExercise = useSnapshot(exerciseStore)
+    const storedFavorites = useSnapshot(favoritesStore)
     const { measures, generationOptions, signature, bpm, tempoCeiling, tempoProgram, tempoStep } =
         storedExercise
+    const exerciseSourceLabel = exerciseSourceLabels[storedExercise.source]
     const exercise: ExerciseNote[] = storedExercise.exercise.map((note) => ({ ...note }))
+    const favoriteExercises: FavoriteExercise[] = storedFavorites.exercises.map((favorite) => ({
+        ...favorite,
+        generationOptions: { ...favorite.generationOptions },
+        exercise: favorite.exercise.map((note) => ({ ...note })),
+    }))
     const [hits, setHits] = useState<PlayerHit[]>([])
     const [loopRuns, setLoopRuns] = useState<CompletedLoopRun[]>([])
     const [state, setState] = useState<'ready' | 'count-in' | 'playing' | 'finished'>('ready')
@@ -68,6 +91,8 @@ function App() {
     const [previewing, setPreviewing] = useState<'all' | number | null>(null)
     const [isLooping, setIsLooping] = useState(() => tempoProgram !== 'steady')
     const [settingsOpen, setSettingsOpen] = useState(false)
+    const [isCommentEditing, setIsCommentEditing] = useState(false)
+    const [commentDraft, setCommentDraft] = useState('')
     const [tempoOpen, setTempoOpen] = useState(false)
     const [calibrationOpen, setCalibrationOpen] = useState(false)
     const [activeBpm, setActiveBpm] = useState<number | null>(null)
@@ -319,15 +344,17 @@ function App() {
     ) {
         if (state === 'count-in' || state === 'playing') return
         const replacement = stepsToNotes(steps, 0, strokes)
-        exerciseStore.measures = nextMeasures
-        exerciseStore.signature = nextSignature
-        exerciseStore.exercise = Array.from({ length: nextMeasures }, (_, measure) =>
-            replacement.map((note) => ({
-                ...note,
-                id: `${measure}-${note.position}`,
-                measure,
-            })),
-        ).flat()
+        setManualExercise(
+            nextMeasures,
+            nextSignature,
+            Array.from({ length: nextMeasures }, (_, measure) =>
+                replacement.map((note) => ({
+                    ...note,
+                    id: `${measure}-${note.position}`,
+                    measure,
+                })),
+            ).flat(),
+        )
         setHits([])
         setSelectedMeasure(null)
     }
@@ -337,6 +364,21 @@ function App() {
         setPresetExercise(presetToExercise(preset))
         setSelectedMeasure(null)
         setSettingsOpen(false)
+    }
+    function chooseFavorite(favorite: FavoriteExercise) {
+        if (state === 'count-in' || state === 'playing') return
+        reset()
+        loadFavoriteExercise(favorite)
+        setSelectedMeasure(null)
+        setSettingsOpen(false)
+    }
+    function startEditingComment() {
+        setCommentDraft(storedExercise.comment)
+        setIsCommentEditing(true)
+    }
+    function saveComment() {
+        setExerciseComment(commentDraft)
+        setIsCommentEditing(false)
     }
     function stopPreview() {
         previewRequest.current++
@@ -753,6 +795,70 @@ function App() {
                     onClick={() => setTempoOpen(false)}
                 >
                     <div className="notation-scroll p-5 md:p-7" ref={notationScroll}>
+                        <div
+                            className="notation-source"
+                            aria-label={`Exercise source: ${exerciseSourceLabel}`}
+                        >
+                            <span>{exerciseSourceLabel}</span>
+                        </div>
+                        <div className="exercise-comment">
+                            {isCommentEditing ? (
+                                <>
+                                    <input
+                                        type="text"
+                                        value={commentDraft}
+                                        onChange={(event) => setCommentDraft(event.target.value)}
+                                        placeholder="Add a note about this exercise"
+                                        autoFocus
+                                    />
+                                    <button
+                                        type="button"
+                                        className="comment-save"
+                                        onClick={saveComment}
+                                    >
+                                        Save
+                                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    <p>{storedExercise.comment}</p>
+                                    <button
+                                        type="button"
+                                        className="comment-edit"
+                                        onClick={startEditingComment}
+                                        aria-label="Edit exercise comment"
+                                        title="Edit comment"
+                                    >
+                                        <FontAwesomeIcon icon={faPen} />
+                                    </button>
+                                </>
+                            )}
+                            <button
+                                type="button"
+                                className={`favorite-button ${
+                                    storedExercise.source === 'favorite' ? 'is-favorite' : ''
+                                }`}
+                                onClick={() => {
+                                    if (storedExercise.favoriteId) {
+                                        removeFavoriteExercise(storedExercise.favoriteId)
+                                    } else {
+                                        addCurrentExerciseToFavorites()
+                                    }
+                                }}
+                                aria-label={
+                                    storedExercise.favoriteId
+                                        ? 'Remove from favorites'
+                                        : 'Add to favorites'
+                                }
+                                title={
+                                    storedExercise.favoriteId
+                                        ? 'Remove from favorites'
+                                        : 'Add to favorites'
+                                }
+                            >
+                                <FontAwesomeIcon icon={faStar} />
+                            </button>
+                        </div>
                         <div className="flex min-w-0 flex-wrap content-start pb-36">
                             {Array.from({ length: measures }, (_, index) => (
                                 <Measure
@@ -951,6 +1057,8 @@ function App() {
                     measures={measures}
                     signature={signature}
                     options={generationOptions}
+                    source={storedExercise.source}
+                    favorites={favoriteExercises}
                     onClose={() => setSettingsOpen(false)}
                     manualSteps={notesToSteps(
                         exercise.filter((note) => note.measure === 0),
@@ -967,6 +1075,8 @@ function App() {
                     onManualSave={saveManualMeasure}
                     onPreset={choosePreset}
                     onGenerate={generateFromSettings}
+                    onFavorite={chooseFavorite}
+                    onRemoveFavorite={removeFavoriteExercise}
                 />
             ) : null}
         </main>
