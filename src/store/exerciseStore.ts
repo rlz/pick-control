@@ -1,6 +1,7 @@
 import { proxy, subscribe } from 'valtio'
 import { defaultGenerationOptions, generateExercise } from '../domain/exercise'
 import type { GenerationOptions } from '../domain/exercise'
+import { findPresetNumber } from '../domain/stickControlPresets'
 import type { ExerciseNote, PickStroke, TimeSignature } from '../types'
 
 const STORAGE_KEY = 'taktcontrol.exercise.v1'
@@ -37,6 +38,7 @@ type StoredExercise = {
     tempoCeiling: number
     source: ExerciseSource
     favoriteId?: string
+    presetNumber?: number
     comment: string
     exercise: ExerciseNote[]
 }
@@ -103,6 +105,12 @@ function loadExercise(): StoredExercise {
                   tempoCeiling: normalizeBpm(saved.tempoCeiling ?? defaults().tempoCeiling),
                   source: normalizeExerciseSource(saved.source),
                   favoriteId: typeof saved.favoriteId === 'string' ? saved.favoriteId : undefined,
+                  presetNumber:
+                      typeof saved.presetNumber === 'number'
+                          ? saved.presetNumber
+                          : saved.source === 'preset'
+                            ? findPresetNumber(saved.exercise)
+                            : undefined,
                   comment: typeof saved.comment === 'string' ? saved.comment : '',
               })
             : defaults()
@@ -166,6 +174,14 @@ function detachFavorite() {
     exerciseStore.favoriteId = undefined
 }
 
+function clearSelectedPreset() {
+    exerciseStore.presetNumber = undefined
+}
+
+function clearComment() {
+    exerciseStore.comment = ''
+}
+
 export function setBpm(bpm: number) {
     exerciseStore.bpm = normalizeBpm(bpm)
     exerciseStore.tempoCeiling = Math.max(exerciseStore.tempoCeiling, exerciseStore.bpm)
@@ -192,6 +208,8 @@ export function setGenerationOptions(options: GenerationOptions) {
     )
     exerciseStore.source = 'generator'
     detachFavorite()
+    clearSelectedPreset()
+    clearComment()
 }
 
 export function regenerateExercise(
@@ -202,6 +220,8 @@ export function regenerateExercise(
     exerciseStore.exercise = generateExercise(measures, options, signature)
     exerciseStore.source = 'generator'
     detachFavorite()
+    clearSelectedPreset()
+    clearComment()
 }
 
 export function generateExerciseWithSettings(
@@ -215,14 +235,18 @@ export function generateExerciseWithSettings(
     exerciseStore.exercise = generateExercise(measures, options, signature)
     exerciseStore.source = 'generator'
     detachFavorite()
+    clearSelectedPreset()
+    clearComment()
 }
 
-export function setPresetExercise(exercise: ExerciseNote[]) {
+export function setPresetExercise(exercise: ExerciseNote[], presetNumber: number) {
     exerciseStore.measures = 2
     exerciseStore.signature = '4/4'
     exerciseStore.exercise = exercise
     exerciseStore.source = 'preset'
+    exerciseStore.presetNumber = presetNumber
     detachFavorite()
+    clearComment()
 }
 
 export function replaceMeasureNotes(measure: number, notes: ExerciseNote[]) {
@@ -232,6 +256,7 @@ export function replaceMeasureNotes(measure: number, notes: ExerciseNote[]) {
     ].sort((left, right) => left.measure - right.measure || left.position - right.position)
     exerciseStore.source = 'manual'
     detachFavorite()
+    clearSelectedPreset()
 }
 
 export function setManualExercise(
@@ -244,6 +269,7 @@ export function setManualExercise(
     exerciseStore.exercise = exercise
     exerciseStore.source = 'manual'
     detachFavorite()
+    clearSelectedPreset()
 }
 
 export function setExerciseComment(comment: string) {
@@ -273,6 +299,7 @@ export function addCurrentExerciseToFavorites() {
     favoritesStore.exercises.unshift(favorite)
     exerciseStore.source = 'favorite'
     exerciseStore.favoriteId = favorite.id
+    clearSelectedPreset()
 }
 
 export function removeFavoriteExercise(id: string) {
@@ -280,6 +307,7 @@ export function removeFavoriteExercise(id: string) {
     if (exerciseStore.favoriteId !== id) return
     exerciseStore.source = 'manual'
     detachFavorite()
+    clearSelectedPreset()
 }
 
 export function loadFavoriteExercise(favorite: FavoriteExercise) {
@@ -293,6 +321,7 @@ export function loadFavoriteExercise(favorite: FavoriteExercise) {
     exerciseStore.comment = favorite.comment
     exerciseStore.source = 'favorite'
     exerciseStore.favoriteId = favorite.id
+    clearSelectedPreset()
 }
 
 subscribe(exerciseStore, () => {

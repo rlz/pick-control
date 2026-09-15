@@ -361,7 +361,7 @@ function App() {
     function choosePreset(preset: StickControlPreset) {
         if (state === 'count-in' || state === 'playing') return
         reset()
-        setPresetExercise(presetToExercise(preset))
+        setPresetExercise(presetToExercise(preset), preset.number)
         setSelectedMeasure(null)
         setSettingsOpen(false)
     }
@@ -820,18 +820,29 @@ function App() {
                                     </button>
                                 </>
                             ) : (
-                                <>
-                                    <p>{storedExercise.comment}</p>
+                                storedExercise.comment ? (
+                                    <>
+                                        <p>{storedExercise.comment}</p>
+                                        <button
+                                            type="button"
+                                            className="comment-edit"
+                                            onClick={startEditingComment}
+                                            aria-label="Edit exercise comment"
+                                            title="Edit comment"
+                                        >
+                                            <FontAwesomeIcon icon={faPen} />
+                                        </button>
+                                    </>
+                                ) : (
                                     <button
                                         type="button"
                                         className="comment-edit"
                                         onClick={startEditingComment}
-                                        aria-label="Edit exercise comment"
-                                        title="Edit comment"
+                                        aria-label="Add exercise comment"
                                     >
-                                        <FontAwesomeIcon icon={faPen} />
+                                        Add comment
                                     </button>
-                                </>
+                                )
                             )}
                             <button
                                 type="button"
@@ -1058,6 +1069,7 @@ function App() {
                     signature={signature}
                     options={generationOptions}
                     source={storedExercise.source}
+                    selectedPresetNumber={storedExercise.presetNumber}
                     favorites={favoriteExercises}
                     onClose={() => setSettingsOpen(false)}
                     manualSteps={notesToSteps(

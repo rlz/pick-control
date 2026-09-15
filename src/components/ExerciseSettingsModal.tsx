@@ -20,6 +20,7 @@ type Props = {
     signature: TimeSignature
     options: GenerationOptions
     source: ExerciseSource
+    selectedPresetNumber?: number
     favorites: FavoriteExercise[]
     onClose: () => void
     manualSteps: StepKind[]
@@ -124,6 +125,7 @@ export function ExerciseSettingsModal({
     signature,
     options,
     source,
+    selectedPresetNumber,
     favorites,
     onClose,
     manualSteps,
@@ -152,6 +154,15 @@ export function ExerciseSettingsModal({
     const [manualSignature, setManualSignature] = useState(signature)
     const [draftManualSteps, setDraftManualSteps] = useState(manualSteps)
     const [draftManualStrokes, setDraftManualStrokes] = useState(manualStrokes)
+    const presetElements = useRef(new Map<number, HTMLButtonElement>())
+
+    useEffect(() => {
+        if (tab !== 'presets' || selectedPresetNumber === undefined) return
+
+        presetElements.current
+            .get(selectedPresetNumber)
+            ?.scrollIntoView({ block: 'center', behavior: 'auto' })
+    }, [selectedPresetNumber, tab])
 
     function changeManualSignature(nextSignature: TimeSignature) {
         const slots = nextSignature === '6/8' ? 12 : Number(nextSignature[0]) * 4
@@ -306,8 +317,17 @@ export function ExerciseSettingsModal({
                                 <button
                                     type="button"
                                     key={preset.number}
+                                    ref={(element) => {
+                                        if (element)
+                                            presetElements.current.set(preset.number, element)
+                                        else presetElements.current.delete(preset.number)
+                                    }}
                                     onClick={() => onPreset(preset)}
                                     aria-label={'Choose preset ' + preset.number}
+                                    aria-pressed={selectedPresetNumber === preset.number}
+                                    className={
+                                        selectedPresetNumber === preset.number ? 'selected' : ''
+                                    }
                                 >
                                     <strong>{preset.number}</strong>
                                     <PresetNotation preset={preset} />
