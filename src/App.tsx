@@ -5,10 +5,12 @@ import {
     faMicrophone,
     faPen,
     faPlay,
+    faPlus,
     faRepeat,
     faRotateRight,
     faStop,
     faStar,
+    faTrash,
     faVolumeHigh,
 } from '@fortawesome/free-solid-svg-icons'
 import { useSnapshot } from 'valtio'
@@ -34,7 +36,12 @@ import {
     replaceMeasureNotes,
     setBpm,
     setExerciseComment,
-    setManualExercise,
+    addEmptyMeasure,
+    changeExerciseSignature,
+    clearExercise,
+    deleteMeasure,
+    duplicateMeasure,
+    moveMeasure,
     setPresetExercise,
     setTempoCeiling,
     setTempoProgram,
@@ -49,7 +56,7 @@ import { presetToExercise, type StickControlPreset } from './domain/stickControl
 const currentTime = () => performance.now()
 
 const exerciseSourceLabels = {
-    manual: 'Manual',
+    manual: 'Editor',
     preset: 'Preset',
     generator: 'Random generation',
     favorite: 'Favorite',
@@ -99,6 +106,12 @@ function App() {
     const [editorMeasure, setEditorMeasure] = useState<number | null>(null)
     const [editorSteps, setEditorSteps] = useState<StepKind[]>([])
     const [editorStrokes, setEditorStrokes] = useState<(PickStroke | undefined)[]>([])
+    const [confirmation, setConfirmation] = useState<{
+        title: string
+        description: string
+        confirmLabel: string
+        onConfirm: () => void
+    } | null>(null)
     const cleanup = useRef<null | (() => void)>(null)
     const recordingRequest = useRef(0)
     const metronome = useRef(new Metronome())
@@ -315,7 +328,7 @@ function App() {
         stopPreview()
         setSettingsOpen(true)
     }
-    function setEditorStroke(step: number, stroke: PickStroke) {
+    function setEditorStroke(step: number, stroke: PickStroke | undefined) {
         setEditorStrokes((previous) => {
             const next = [...previous]
             next[step] = stroke
@@ -336,27 +349,58 @@ function App() {
         setHits([])
         setEditorMeasure(null)
     }
-    function saveManualMeasure(
-        nextMeasures: number,
-        nextSignature: TimeSignature,
-        steps: StepKind[],
-        strokes: (PickStroke | undefined)[],
-    ) {
+    function changeNotation(action: () => void) {
         if (state === 'count-in' || state === 'playing') return
-        const replacement = stepsToNotes(steps, 0, strokes)
-        setManualExercise(
-            nextMeasures,
-            nextSignature,
-            Array.from({ length: nextMeasures }, (_, measure) =>
-                replacement.map((note) => ({
-                    ...note,
-                    id: `${measure}-${note.position}`,
-                    measure,
-                })),
-            ).flat(),
-        )
-        setHits([])
-        setSelectedMeasure(null)
+        reset()
+        action()
+    }
+    function addMeasure() {
+        changeNotation(() => {
+            addEmptyMeasure()
+            setSelectedMeasure(measures)
+        })
+    }
+    function duplicateSelectedMeasure(measure: number) {
+        changeNotation(() => {
+            duplicateMeasure(measure)
+            setSelectedMeasure(measure + 1)
+        })
+    }
+    function moveSelectedMeasure(measure: number, direction: -1 | 1) {
+        changeNotation(() => {
+            moveMeasure(measure, direction)
+            setSelectedMeasure(measure + direction)
+        })
+    }
+    function deleteSelectedMeasure(measure: number) {
+        changeNotation(() => {
+            deleteMeasure(measure)
+            setSelectedMeasure(Math.min(measure, measures - 2))
+        })
+    }
+    function requestClearExercise() {
+        if (state === 'count-in' || state === 'playing') return
+        setConfirmation({
+            title: 'Clear exercise?',
+            description: 'All notes will be removed and the exercise will contain one empty measure.',
+            confirmLabel: 'Clear',
+            onConfirm: () => {
+                changeNotation(clearExercise)
+                setSelectedMeasure(null)
+            },
+        })
+    }
+    function requestSignatureChange(nextSignature: TimeSignature) {
+        if (nextSignature === signature || state === 'count-in' || state === 'playing') return
+        setConfirmation({
+            title: 'Change time signature?',
+            description: `This will remove all notes and reset the exercise to one empty ${nextSignature} measure.`,
+            confirmLabel: 'Change',
+            onConfirm: () => {
+                changeNotation(() => changeExerciseSignature(nextSignature))
+                setSelectedMeasure(null)
+            },
+        })
     }
     function choosePreset(preset: StickControlPreset) {
         if (state === 'count-in' || state === 'playing') return
@@ -794,6 +838,42 @@ function App() {
                     className="relative grid min-h-0 min-w-0 overflow-hidden bg-slate-950"
                     onClick={() => setTempoOpen(false)}
                 >
+                    <div className="workspace-top-actions">
+                        <select
+                            className="signature-control"
+                            value={signature}
+                            onChange={(event) =>
+                                requestSignatureChange(event.target.value as TimeSignature)
+                            }
+                            disabled={state === 'count-in' || state === 'playing'}
+                            aria-label="Change time signature"
+                            title="Change time signature"
+                        >
+                            <option>4/4</option>
+                            <option>3/4</option>
+                            <option>6/8</option>
+                        </select>
+                        <button
+                            className="workspace-action"
+                            type="button"
+                            onClick={addMeasure}
+                            disabled={state === 'count-in' || state === 'playing'}
+                            aria-label="Add empty measure"
+                            title="Add empty measure"
+                        >
+                            <FontAwesomeIcon icon={faPlus} />
+                        </button>
+                        <button
+                            className="workspace-action danger"
+                            type="button"
+                            onClick={requestClearExercise}
+                            disabled={state === 'count-in' || state === 'playing'}
+                            aria-label="Clear exercise"
+                            title="Clear exercise"
+                        >
+                            <FontAwesomeIcon icon={faTrash} />
+                        </button>
+                    </div>
                     <div className="notation-scroll p-5 md:p-7" ref={notationScroll}>
                         <div
                             className="notation-source"
@@ -891,6 +971,13 @@ function App() {
                                     onClick={() =>
                                         setSelectedMeasure(selectedMeasure === index ? null : index)
                                     }
+                                    onEdit={openMeasureEditor}
+                                    onDuplicate={() => duplicateSelectedMeasure(index)}
+                                    onMove={(direction) => moveSelectedMeasure(index, direction)}
+                                    onDelete={() => deleteSelectedMeasure(index)}
+                                    isEditingDisabled={state === 'count-in' || state === 'playing'}
+                                    canDelete={measures > 1}
+                                    canMoveRight={index < measures - 1}
                                 />
                             ))}
                         </div>
@@ -947,8 +1034,6 @@ function App() {
                             measureMs={measureMs}
                             onPreview={() => previewPattern(selectedMeasure)}
                             isPreviewing={previewing === selectedMeasure}
-                            onEdit={openMeasureEditor}
-                            isEditingDisabled={state === 'count-in' || state === 'playing'}
                         />
                     ) : null}
                 </div>
@@ -1072,24 +1157,39 @@ function App() {
                     selectedPresetNumber={storedExercise.presetNumber}
                     favorites={favoriteExercises}
                     onClose={() => setSettingsOpen(false)}
-                    manualSteps={notesToSteps(
-                        exercise.filter((note) => note.measure === 0),
-                        spec.slots,
-                    )}
-                    manualStrokes={notesToStrokes(
-                        exercise.filter((note) => note.measure === 0),
-                        spec.slots,
-                    )}
-                    isManualPreviewing={previewing === 0}
-                    onManualPreview={(steps, strokes) =>
-                        previewPattern(0, stepsToNotes(steps, 0, strokes))
-                    }
-                    onManualSave={saveManualMeasure}
                     onPreset={choosePreset}
                     onGenerate={generateFromSettings}
                     onFavorite={chooseFavorite}
                     onRemoveFavorite={removeFavoriteExercise}
                 />
+            ) : null}
+            {confirmation ? (
+                <div className="measure-editor-backdrop" role="presentation">
+                    <section
+                        className="confirmation-dialog"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="confirmation-title"
+                    >
+                        <h2 id="confirmation-title">{confirmation.title}</h2>
+                        <p>{confirmation.description}</p>
+                        <div>
+                            <button type="button" onClick={() => setConfirmation(null)}>
+                                Cancel
+                            </button>
+                            <button
+                                className="confirm-danger"
+                                type="button"
+                                onClick={() => {
+                                    confirmation.onConfirm()
+                                    setConfirmation(null)
+                                }}
+                            >
+                                {confirmation.confirmLabel}
+                            </button>
+                        </div>
+                    </section>
+                </div>
             ) : null}
         </main>
     )

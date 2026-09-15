@@ -1,7 +1,8 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faPlay, faStop, faXmark } from '@fortawesome/free-solid-svg-icons'
+import { faArrowDown, faArrowUp, faPlay, faStop, faXmark } from '@fortawesome/free-solid-svg-icons'
 import type { PickStroke, TimeSignature } from '../types'
-import type { StepKind } from '../domain/measureSteps'
+import { stepsToNotes, type StepKind } from '../domain/measureSteps'
+import { signatures } from '../domain/exercise'
 
 type Props = {
     measure: number
@@ -10,7 +11,7 @@ type Props = {
     strokes: (PickStroke | undefined)[]
     isPreviewing: boolean
     onChange: (step: number, kind: StepKind) => void
-    onStrokeChange: (step: number, stroke: PickStroke) => void
+    onStrokeChange: (step: number, stroke: PickStroke | undefined) => void
     onPreview: () => void
     onSave: () => void
     onClose: () => void
@@ -24,7 +25,7 @@ const labels: Record<StepKind, string> = {
     continue: 'Continue',
     rest: 'Rest',
 }
-const kinds: StepKind[] = ['note', 'mute', 'triplet', 'continue', 'rest']
+const kinds: StepKind[] = ['note', 'triplet', 'continue', 'rest', 'mute']
 
 export function MeasureEditor({
     measure,
@@ -40,10 +41,20 @@ export function MeasureEditor({
     embedded = false,
 }: Props) {
     const beatSlots = signature === '6/8' ? 6 : 4
+    const spec = signatures[signature]
+    const previewNotes = stepsToNotes(steps, measure, strokes)
+    const timelineStart = 0
+    const timelineSpan = 100
 
     const editor = (
-            <section className={embedded ? 'measure-editor embedded' : 'measure-editor'} role={embedded ? undefined : 'dialog'} aria-modal={embedded ? undefined : true} aria-label={embedded ? undefined : `Measure ${measure + 1} editor, ${signature}`}>
+            <section
+                className={embedded ? 'measure-editor embedded' : 'measure-editor'}
+                role={embedded ? undefined : 'dialog'}
+                aria-modal={embedded ? undefined : true}
+                aria-label={embedded ? undefined : `Measure ${measure + 1} editor, ${signature}`}
+            >
                 {!embedded ? <header className="measure-editor-header">
+                    <h2>Measure {measure + 1}</h2>
                     <button
                         className="editor-close"
                         type="button"
@@ -54,21 +65,82 @@ export function MeasureEditor({
                     </button>
                 </header> : null}
                 <div className="editor-matrix">
-                    <div className="editor-matrix-axis">
-                        <span />
+                    <section className="editor-result-row" aria-label="Live rhythm preview">
+                        <span aria-hidden="true" />
                         <div
+                            className="editor-result-track"
                             style={{
-                                gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))`,
+                                gridTemplateColumns: `repeat(${steps.length}, var(--editor-cell-size))`,
                             }}
                         >
-                            {Array.from({ length: steps.length }, (_, step) => (
-                                <i
-                                    className={step % beatSlots === 0 ? 'beat-start' : ''}
-                                    key={step}
-                                >
-                                    {step % beatSlots === 0 ? step / beatSlots + 1 : ''}
-                                </i>
-                            ))}
+                            <div className="timeline">
+                                <div className="axis">
+                                    {Array.from({ length: spec.beats + 1 }, (_, index) => (
+                                        <span
+                                            key={index}
+                                            style={{
+                                                left: `${timelineStart + (index / spec.beats) * timelineSpan}%`,
+                                            }}
+                                        >
+                                            {index + 1}
+                                        </span>
+                                    ))}
+                                </div>
+                                {Array.from({ length: spec.slots + 1 }, (_, index) => (
+                                    <i
+                                        key={index}
+                                        className={`subdivision ${index % beatSlots === 0 ? 'beat' : index % (beatSlots / 2) === 0 ? 'eighth' : 'sixteenth'}`}
+                                        style={{
+                                            left: `${timelineStart + (index / spec.slots) * timelineSpan}%`,
+                                        }}
+                                    />
+                                ))}
+                                {previewNotes
+                                    .filter((note) => !note.isRest)
+                                    .map((note) => (
+                                        <span
+                                            className={`rhythm-bar ${note.palmMuted ? 'palm-muted' : ''}`}
+                                            key={note.id}
+                                            style={{
+                                                left: `${timelineStart + (note.position / spec.slots) * timelineSpan}%`,
+                                                width: `${(note.duration / spec.slots) * timelineSpan}%`,
+                                            }}
+                                        />
+                                    ))}
+                            </div>
+                        </div>
+                    </section>
+                    <div className="editor-state-row">
+                        <span className="editor-row-label">Stroke</span>
+                        <div
+                            className="editor-cells"
+                            style={{
+                                gridTemplateColumns: `repeat(${steps.length}, var(--editor-cell-size))`,
+                            }}
+                        >
+                            {steps.map((kind, step) => {
+                                const stroke = strokes[step]
+                                const playable = kind !== 'rest' && kind !== 'continue'
+                                const nextStroke =
+                                    stroke === undefined ? 'down' : stroke === 'down' ? 'up' : undefined
+                                return (
+                                    <button
+                                        className={`rhythm-cell stroke ${stroke ?? 'unset'}`}
+                                        disabled={!playable}
+                                        key={step}
+                                        type="button"
+                                        onClick={() => onStrokeChange(step, nextStroke)}
+                                        aria-label={`Cycle stroke at step ${step + 1}`}
+                                        title="Cycle stroke: down, up, not set"
+                                    >
+                                        {stroke === 'down' ? (
+                                            <FontAwesomeIcon icon={faArrowDown} />
+                                        ) : stroke === 'up' ? (
+                                            <FontAwesomeIcon icon={faArrowUp} />
+                                        ) : null}
+                                    </button>
+                                )
+                            })}
                         </div>
                     </div>
                     {kinds.map((kind) => (
@@ -77,7 +149,7 @@ export function MeasureEditor({
                             <div
                                 className="editor-cells"
                                 style={{
-                                    gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))`,
+                                    gridTemplateColumns: `repeat(${steps.length}, var(--editor-cell-size))`,
                                 }}
                             >
                                 {steps.map((selectedKind, step) => {
@@ -93,38 +165,6 @@ export function MeasureEditor({
                                             aria-label={`Set step ${step + 1} to ${labels[kind]}`}
                                             aria-pressed={selected}
                                             title={`Set step ${step + 1} to ${labels[kind]}`}
-                                        >
-                                            {selected ? <span aria-hidden="true">●</span> : null}
-                                        </button>
-                                    )
-                                })}
-                            </div>
-                        </div>
-                    ))}
-                    {(['down', 'up'] as PickStroke[]).map((stroke) => (
-                        <div className="editor-state-row" key={stroke}>
-                            <span className="editor-row-label">{stroke === 'down' ? 'Down ↓' : 'Up ↑'}</span>
-                            <div
-                                className="editor-cells"
-                                style={{
-                                    gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))`,
-                                }}
-                            >
-                                {steps.map((kind, step) => {
-                                    const selected = strokes[step] === stroke
-                                    const playable = kind !== 'rest' && kind !== 'continue'
-                                    return (
-                                        <button
-                                            className={`rhythm-cell stroke ${selected ? 'selected' : ''} ${
-                                                step % beatSlots === 0 ? 'beat-start' : ''
-                                            }`}
-                                            disabled={!playable}
-                                            key={step}
-                                            type="button"
-                                            onClick={() => onStrokeChange(step, stroke)}
-                                            aria-label={`Set step ${step + 1} to ${stroke} stroke`}
-                                            aria-pressed={selected}
-                                            title={`Set step ${step + 1} to ${stroke} stroke`}
                                         >
                                             {selected ? <span aria-hidden="true">●</span> : null}
                                         </button>

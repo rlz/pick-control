@@ -1,4 +1,12 @@
 import { EngravedMeasure } from './EngravedMeasure'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import {
+    faClone,
+    faPenToSquare,
+    faTrash,
+    faArrowLeft,
+    faArrowRight,
+} from '@fortawesome/free-solid-svg-icons'
 import { useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
 import type { ExerciseNote, TimeSignature } from '../types'
@@ -11,6 +19,13 @@ type Props = {
     isActive: boolean
     activeSlot: number
     onClick: () => void
+    onEdit: () => void
+    onDuplicate: () => void
+    onMove: (direction: -1 | 1) => void
+    onDelete: () => void
+    isEditingDisabled: boolean
+    canDelete: boolean
+    canMoveRight: boolean
 }
 
 export function Measure({
@@ -21,6 +36,13 @@ export function Measure({
     isActive,
     activeSlot,
     onClick,
+    onEdit,
+    onDuplicate,
+    onMove,
+    onDelete,
+    isEditingDisabled,
+    canDelete,
+    canMoveRight,
 }: Props) {
     const [viewportWidth, setViewportWidth] = useState<number | null>(null)
 
@@ -58,10 +80,18 @@ export function Measure({
     )
     const displayWidth = Math.round(measureWidth * notationScale)
     return (
-        <button
+        <div
+            role="button"
+            tabIndex={0}
             className={`measure ${selected ? 'selected' : ''} ${isActive ? 'active' : ''} relative min-h-48 flex-[0_0_var(--measure-width)] border-0 bg-transparent p-0 text-left text-inherit transition-colors`}
             onClick={onClick}
-            aria-label={`Open measure ${index + 1} timing`}
+            onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    onClick()
+                }
+            }}
+            aria-label={`Select measure ${index + 1}`}
             data-measure={index}
             style={{ '--measure-width': `${displayWidth}px` } as CSSProperties}
         >
@@ -75,7 +105,71 @@ export function Measure({
                     activeSlot={activeSlot}
                 />
             </div>
-            <span className="tap">inspect timing</span>
-        </button>
+            {selected ? (
+                <div className="measure-actions" aria-label={`Measure ${index + 1} actions`}>
+                    <button
+                        type="button"
+                        onClick={(event) => {
+                            event.stopPropagation()
+                            onEdit()
+                        }}
+                        disabled={isEditingDisabled}
+                        aria-label="Edit measure"
+                        title="Edit measure"
+                    >
+                        <FontAwesomeIcon icon={faPenToSquare} />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={(event) => {
+                            event.stopPropagation()
+                            onDuplicate()
+                        }}
+                        disabled={isEditingDisabled}
+                        aria-label="Duplicate measure"
+                        title="Duplicate measure"
+                    >
+                        <FontAwesomeIcon icon={faClone} />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={(event) => {
+                            event.stopPropagation()
+                            onMove(-1)
+                        }}
+                        disabled={isEditingDisabled || index === 0}
+                        aria-label="Move measure left"
+                        title="Move measure left"
+                    >
+                        <FontAwesomeIcon icon={faArrowLeft} />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={(event) => {
+                            event.stopPropagation()
+                            onMove(1)
+                        }}
+                        disabled={isEditingDisabled || !canMoveRight}
+                        aria-label="Move measure right"
+                        title="Move measure right"
+                    >
+                        <FontAwesomeIcon icon={faArrowRight} />
+                    </button>
+                    <button
+                        type="button"
+                        className="danger"
+                        onClick={(event) => {
+                            event.stopPropagation()
+                            onDelete()
+                        }}
+                        disabled={isEditingDisabled || !canDelete}
+                        aria-label="Delete measure"
+                        title="Delete measure"
+                    >
+                        <FontAwesomeIcon icon={faTrash} />
+                    </button>
+                </div>
+            ) : null}
+        </div>
     )
 }

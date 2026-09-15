@@ -420,6 +420,100 @@ button:disabled {
 .measure.selected {
     background: #818cf810;
 }
+.measure-actions {
+    position: absolute;
+    z-index: 10;
+    top: 0.35rem;
+    right: 0.35rem;
+    display: flex;
+    gap: 0.2rem;
+    padding: 0.2rem;
+    border: 1px solid #334155;
+    border-radius: 0.5rem;
+    background: #0f172ae8;
+    box-shadow: 0 5px 18px #02061780;
+}
+.measure-actions button,
+.workspace-action {
+    display: grid;
+    width: 1.9rem;
+    height: 1.9rem;
+    place-items: center;
+    border: 1px solid transparent;
+    border-radius: 0.35rem;
+    background: transparent;
+    color: #cbd5e1;
+    cursor: pointer;
+    transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+}
+.measure-actions button:hover:not(:disabled),
+.workspace-action:hover:not(:disabled) {
+    border-color: #818cf8;
+    background: #312e814d;
+    color: #e0e7ff;
+}
+.measure-actions button.danger:hover:not(:disabled),
+.workspace-action.danger:hover:not(:disabled) {
+    border-color: #fb7185;
+    background: #88133755;
+    color: #fecdd3;
+}
+.measure-actions button:disabled,
+.workspace-action:disabled {
+    cursor: not-allowed;
+    opacity: 0.35;
+}
+.workspace-top-actions {
+    position: absolute;
+    z-index: 20;
+    top: 1.25rem;
+    right: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+.workspace-top-actions .workspace-action {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-color: #475569;
+    border-radius: 0.45rem;
+    background: #1e293b;
+    color: #c7d2fe;
+    font-size: 1rem;
+}
+.workspace-top-actions .workspace-action:hover:not(:disabled) {
+    border-color: #818cf8;
+    background: #273449;
+    color: #e0e7ff;
+}
+.workspace-top-actions .workspace-action.danger {
+    border-color: #7f1d1d;
+    color: #fda4af;
+}
+.workspace-top-actions .workspace-action.danger:hover:not(:disabled) {
+    border-color: #fb7185;
+    background: #4c1d2a;
+    color: #fecdd3;
+}
+.signature-control {
+    height: 2.5rem;
+    border: 1px solid #475569;
+    border-radius: 0.45rem;
+    background: #1e293b;
+    padding: 0 0.6rem;
+    color: #c7d2fe;
+    font: 600 0.8rem var(--font-mono);
+}
+.signature-control:hover:not(:disabled) {
+    border-color: #818cf8;
+    background: #273449;
+}
+@media (min-width: 768px) {
+    .workspace-top-actions {
+        top: 1.75rem;
+        right: 1.75rem;
+    }
+}
 .measure:focus,
 .measure:focus-visible {
     outline: none;
@@ -907,6 +1001,43 @@ button:disabled {
     background: #020617cc;
     backdrop-filter: blur(7px);
 }
+.confirmation-dialog {
+    width: min(26rem, 100%);
+    border: 1px solid #334155;
+    border-radius: 0.9rem;
+    background: #0f172a;
+    padding: 1.25rem;
+    box-shadow: 0 24px 70px #00000080;
+}
+.confirmation-dialog h2 {
+    margin: 0;
+    color: #f8fafc;
+    font-size: 1rem;
+}
+.confirmation-dialog p {
+    margin: 0.6rem 0 1.25rem;
+    color: #94a3b8;
+    font-size: 0.875rem;
+    line-height: 1.45;
+}
+.confirmation-dialog > div {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+.confirmation-dialog button {
+    border: 1px solid #475569;
+    border-radius: 0.45rem;
+    background: #1e293b;
+    padding: 0.5rem 0.8rem;
+    color: #e2e8f0;
+    cursor: pointer;
+}
+.confirmation-dialog button.confirm-danger {
+    border-color: #fb7185;
+    background: #be123c;
+    color: white;
+}
 .measure-editor {
     width: 100%;
     border: 1px solid #334155;
@@ -915,8 +1046,13 @@ button:disabled {
     box-shadow: 0 24px 70px #00000080;
     overflow: hidden;
 }
+.measure-editor:not(.embedded) {
+    width: fit-content;
+    max-width: 100%;
+}
 .measure-editor-shell {
-    width: min(72rem, 100%);
+    width: fit-content;
+    max-width: 100%;
 }
 .exercise-settings-modal {
     display: flex;
@@ -1069,8 +1205,13 @@ button:disabled {
 .measure-editor-header {
     display: flex;
     align-items: center;
-    justify-content: flex-end;
+    justify-content: space-between;
     padding: 1rem 1.25rem;
+}
+.measure-editor-header h2 {
+    margin: 0;
+    color: #e2e8f0;
+    font: 600 0.875rem var(--font-sans);
 }
 .editor-close {
     display: grid;
@@ -1083,6 +1224,7 @@ button:disabled {
     background: #1e293b;
 }
 .editor-matrix {
+    --editor-cell-size: min(2.75rem, calc((100vw - 10rem) / 16));
     display: grid;
     gap: 0.4rem;
     padding: 1rem 1.25rem;
@@ -1090,25 +1232,36 @@ button:disabled {
     border-bottom: 1px solid #1e293b;
     background: #02061780;
 }
-.editor-matrix-axis,
+@media (max-height: 700px) {
+    .editor-matrix {
+        --editor-cell-size: min(2.35rem, calc((100vw - 10rem) / 16));
+    }
+}
+@media (max-height: 560px) {
+    .editor-matrix {
+        --editor-cell-size: min(2rem, calc((100vw - 10rem) / 16));
+    }
+}
+.editor-result-row,
 .editor-state-row {
     display: grid;
     grid-template-columns: 5.75rem minmax(0, 1fr);
     gap: 0.6rem;
     align-items: center;
 }
-.editor-matrix-axis > div {
+.editor-result-row {
+    align-items: end;
+}
+.editor-result-track {
     display: grid;
+    width: max-content;
+    gap: 0.2rem;
 }
-.editor-matrix-axis i {
-    min-width: 0;
-    border-left: 1px solid transparent;
-    color: #64748b;
-    font: 10px var(--font-mono);
-    font-style: normal;
-    text-align: left;
+.editor-result-track .timeline {
+    width: 100%;
+    margin: 1.2rem 0 0;
+    grid-column: 1 / -1;
 }
-.editor-matrix-axis i.beat-start,
 .rhythm-cell.beat-start {
     border-left-color: #64748b;
 }
@@ -1165,10 +1318,18 @@ button:disabled {
     color: #64748b;
     background: #0f172a;
 }
-.rhythm-cell.stroke.selected {
+.rhythm-cell.stroke.down {
     border-color: #fbbf24;
     color: #fef3c7;
     background: #d9770630;
+}
+.rhythm-cell.stroke.up {
+    border-color: #22d3ee;
+    color: #a5f3fc;
+    background: #0891b230;
+}
+.rhythm-cell.stroke.unset {
+    border-style: dashed;
 }
 .rhythm-cell:disabled {
     cursor: not-allowed;
@@ -1237,7 +1398,7 @@ button:disabled {
         gap: 0.3rem;
         padding: 0.85rem;
     }
-    .editor-matrix-axis,
+    .editor-result-row,
     .editor-state-row {
         grid-template-columns: 4.5rem minmax(0, 1fr);
         gap: 0.4rem;

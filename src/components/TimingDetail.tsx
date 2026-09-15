@@ -1,4 +1,4 @@
-import { faPenToSquare, faPlay, faStop } from '@fortawesome/free-solid-svg-icons'
+import { faPlay, faStop } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import type { ExerciseNote, PlayerHit } from '../types'
 
@@ -11,8 +11,6 @@ type Props = {
     measureMs: number
     onPreview: () => void
     isPreviewing: boolean
-    onEdit: () => void
-    isEditingDisabled: boolean
 }
 
 export function TimingDetail({
@@ -24,8 +22,6 @@ export function TimingDetail({
     measureMs,
     onPreview,
     isPreviewing,
-    onEdit,
-    isEditingDisabled,
 }: Props) {
     const edgeAllowanceMs = 120
     const timelineWidthMs = measureMs + edgeAllowanceMs
@@ -121,16 +117,6 @@ export function TimingDetail({
                     </div>
                 ))}
             </div>
-            <button
-                className="grid size-10 shrink-0 place-items-center rounded-lg border border-slate-700 bg-slate-800 text-slate-200 transition hover:border-indigo-400 hover:text-indigo-200 disabled:cursor-not-allowed disabled:opacity-45"
-                type="button"
-                onClick={onEdit}
-                disabled={isEditingDisabled}
-                aria-label="Edit measure"
-                title="Edit measure"
-            >
-                <FontAwesomeIcon icon={faPenToSquare} />
-            </button>
         </section>
     )
 }

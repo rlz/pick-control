@@ -1,5 +1,5 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faPlay, faStop, faTrash, faXmark } from '@fortawesome/free-solid-svg-icons'
+import { faTrash, faXmark } from '@fortawesome/free-solid-svg-icons'
 import { useEffect, useRef, useState } from 'react'
 import type { GenerationOptions } from '../domain/exercise'
 import type { ExerciseSource, FavoriteExercise } from '../store/exerciseStore'
@@ -8,12 +8,10 @@ import {
     stickControlPresets,
     type StickControlPreset,
 } from '../domain/stickControlPresets'
-import type { PickStroke, TimeSignature } from '../types'
-import type { StepKind } from '../domain/measureSteps'
-import { MeasureEditor } from './MeasureEditor'
+import type { TimeSignature } from '../types'
 import { EngravedMeasure } from './EngravedMeasure'
 
-type Tab = 'manual' | 'presets' | 'generator' | 'favorites'
+type Tab = 'presets' | 'generator' | 'favorites'
 
 type Props = {
     measures: number
@@ -23,16 +21,6 @@ type Props = {
     selectedPresetNumber?: number
     favorites: FavoriteExercise[]
     onClose: () => void
-    manualSteps: StepKind[]
-    manualStrokes: (PickStroke | undefined)[]
-    isManualPreviewing: boolean
-    onManualPreview: (steps: StepKind[], strokes: (PickStroke | undefined)[]) => void
-    onManualSave: (
-        measures: number,
-        signature: TimeSignature,
-        steps: StepKind[],
-        strokes: (PickStroke | undefined)[],
-    ) => void
     onPreset: (preset: StickControlPreset) => void
     onGenerate: (measures: number, options: GenerationOptions, signature: TimeSignature) => void
     onFavorite: (favorite: FavoriteExercise) => void
@@ -40,7 +28,6 @@ type Props = {
 }
 
 const tabs: { id: Tab; label: string }[] = [
-    { id: 'manual', label: 'Manual' },
     { id: 'presets', label: 'Presets' },
     { id: 'generator', label: 'Generator' },
     { id: 'favorites', label: 'Favorites' },
@@ -128,11 +115,6 @@ export function ExerciseSettingsModal({
     selectedPresetNumber,
     favorites,
     onClose,
-    manualSteps,
-    manualStrokes,
-    isManualPreviewing,
-    onManualPreview,
-    onManualSave,
     onPreset,
     onGenerate,
     onFavorite,
@@ -145,15 +127,11 @@ export function ExerciseSettingsModal({
               ? 'generator'
               : source === 'favorite'
                 ? 'favorites'
-                : 'manual',
+                : 'presets',
     )
     const [generatorMeasures, setGeneratorMeasures] = useState(measures)
     const [generatorSignature, setGeneratorSignature] = useState(signature)
     const [generatorOptions, setGeneratorOptions] = useState(options)
-    const [manualMeasures, setManualMeasures] = useState(measures)
-    const [manualSignature, setManualSignature] = useState(signature)
-    const [draftManualSteps, setDraftManualSteps] = useState(manualSteps)
-    const [draftManualStrokes, setDraftManualStrokes] = useState(manualStrokes)
     const presetElements = useRef(new Map<number, HTMLButtonElement>())
 
     useEffect(() => {
@@ -163,55 +141,6 @@ export function ExerciseSettingsModal({
             .get(selectedPresetNumber)
             ?.scrollIntoView({ block: 'center', behavior: 'auto' })
     }, [selectedPresetNumber, tab])
-
-    function changeManualSignature(nextSignature: TimeSignature) {
-        const slots = nextSignature === '6/8' ? 12 : Number(nextSignature[0]) * 4
-        setManualSignature(nextSignature)
-        setDraftManualSteps((previous) =>
-            Array.from({ length: slots }, (_, step) => previous[step] ?? 'rest'),
-        )
-        setDraftManualStrokes((previous) =>
-            Array.from({ length: slots }, (_, step) => previous[step]),
-        )
-    }
-
-    function changeManualStep(step: number, kind: StepKind) {
-        const wasRest = draftManualSteps[step] === 'rest'
-        setDraftManualSteps((previous) => {
-            const next = [...previous]
-            next[step] = kind
-            return next
-        })
-        if (kind === 'rest') {
-            setDraftManualStrokes((previous) => {
-                const next = [...previous]
-                next[step] = undefined
-                return next
-            })
-            return
-        }
-        if (!wasRest || kind === 'continue') return
-        setDraftManualStrokes((previous) => {
-            const next = [...previous]
-            let previousStroke: PickStroke | undefined
-            for (let index = step - 1; index >= 0; index--) {
-                if (previous[index]) {
-                    previousStroke = previous[index]
-                    break
-                }
-            }
-            next[step] = previousStroke === 'down' ? 'up' : 'down'
-            return next
-        })
-    }
-
-    function changeManualStroke(step: number, stroke: PickStroke) {
-        setDraftManualStrokes((previous) => {
-            const next = [...previous]
-            next[step] = stroke
-            return next
-        })
-    }
 
     function selectTab(nextTab: Tab) {
         if (nextTab === 'generator' && tab !== 'generator') {
@@ -255,62 +184,6 @@ export function ExerciseSettingsModal({
                     </button>
                 </div>
                 <div className="settings-tab-content">
-                    {tab === 'manual' ? (
-                        <div className="settings-editor-tab">
-                            <div className="settings-fields">
-                                <label>
-                                    Time signature
-                                    <select
-                                        value={manualSignature}
-                                        onChange={(event) =>
-                                            changeManualSignature(
-                                                event.target.value as TimeSignature,
-                                            )
-                                        }
-                                    >
-                                        <option>4/4</option>
-                                        <option>3/4</option>
-                                        <option>6/8</option>
-                                    </select>
-                                </label>
-                                <label>
-                                    Measures
-                                    <select
-                                        value={manualMeasures}
-                                        onChange={(event) =>
-                                            setManualMeasures(Number(event.target.value))
-                                        }
-                                    >
-                                        {[2, 3, 4, 6, 8, 12, 16, 24, 32].map((count) => (
-                                            <option key={count}>{count}</option>
-                                        ))}
-                                    </select>
-                                </label>
-                            </div>
-                            <MeasureEditor
-                                measure={0}
-                                signature={manualSignature}
-                                steps={draftManualSteps}
-                                strokes={draftManualStrokes}
-                                isPreviewing={isManualPreviewing}
-                                onChange={changeManualStep}
-                                onStrokeChange={changeManualStroke}
-                                onPreview={() =>
-                                    onManualPreview(draftManualSteps, draftManualStrokes)
-                                }
-                                onSave={() =>
-                                    onManualSave(
-                                        manualMeasures,
-                                        manualSignature,
-                                        draftManualSteps,
-                                        draftManualStrokes,
-                                    )
-                                }
-                                onClose={onClose}
-                                embedded
-                            />
-                        </div>
-                    ) : null}
                     {tab === 'presets' ? (
                         <div className="preset-grid">
                             {stickControlPresets.map((preset) => (
@@ -437,32 +310,6 @@ export function ExerciseSettingsModal({
                         </div>
                     ) : null}
                 </div>
-                {tab === 'manual' ? (
-                    <footer className="measure-editor-actions manual-editor-actions">
-                        <button
-                            className="editor-preview"
-                            type="button"
-                            onClick={() => onManualPreview(draftManualSteps, draftManualStrokes)}
-                        >
-                            <FontAwesomeIcon icon={isManualPreviewing ? faStop : faPlay} />
-                            {isManualPreviewing ? 'Stop' : 'Listen'}
-                        </button>
-                        <button
-                            className="editor-save"
-                            type="button"
-                            onClick={() =>
-                                onManualSave(
-                                    manualMeasures,
-                                    manualSignature,
-                                    draftManualSteps,
-                                    draftManualStrokes,
-                                )
-                            }
-                        >
-                            Apply
-                        </button>
-                    </footer>
-                ) : null}
                 {tab === 'generator' ? (
                     <footer className="measure-editor-actions generator-actions">
                         <button

@@ -259,6 +259,63 @@ export function replaceMeasureNotes(measure: number, notes: ExerciseNote[]) {
     clearSelectedPreset()
 }
 
+function setManualMeasures(measures: number, exercise: ExerciseNote[]) {
+    exerciseStore.measures = measures
+    exerciseStore.exercise = exercise
+    exerciseStore.source = 'manual'
+    detachFavorite()
+    clearSelectedPreset()
+}
+
+function renumberNotes(notes: ExerciseNote[]): ExerciseNote[] {
+    return notes
+        .map((note) => ({ ...note, id: `${note.measure}-${note.position}` }))
+        .sort((left, right) => left.measure - right.measure || left.position - right.position)
+}
+
+export function addEmptyMeasure() {
+    setManualMeasures(exerciseStore.measures + 1, [...exerciseStore.exercise])
+}
+
+export function duplicateMeasure(measure: number) {
+    if (measure < 0 || measure >= exerciseStore.measures) return
+    const duplicate = exerciseStore.exercise
+        .filter((note) => note.measure === measure)
+        .map((note) => ({ ...note, measure: measure + 1 }))
+    const shifted = exerciseStore.exercise.map((note) =>
+        note.measure > measure ? { ...note, measure: note.measure + 1 } : note,
+    )
+    setManualMeasures(exerciseStore.measures + 1, renumberNotes([...shifted, ...duplicate]))
+}
+
+export function moveMeasure(measure: number, direction: -1 | 1) {
+    const destination = measure + direction
+    if (measure < 0 || destination < 0 || destination >= exerciseStore.measures) return
+    const moved = exerciseStore.exercise.map((note) => {
+        if (note.measure === measure) return { ...note, measure: destination }
+        if (note.measure === destination) return { ...note, measure }
+        return note
+    })
+    setManualMeasures(exerciseStore.measures, renumberNotes(moved))
+}
+
+export function deleteMeasure(measure: number) {
+    if (exerciseStore.measures <= 1 || measure < 0 || measure >= exerciseStore.measures) return
+    const remaining = exerciseStore.exercise
+        .filter((note) => note.measure !== measure)
+        .map((note) => (note.measure > measure ? { ...note, measure: note.measure - 1 } : note))
+    setManualMeasures(exerciseStore.measures - 1, renumberNotes(remaining))
+}
+
+export function clearExercise() {
+    setManualMeasures(1, [])
+}
+
+export function changeExerciseSignature(signature: TimeSignature) {
+    exerciseStore.signature = signature
+    setManualMeasures(1, [])
+}
+
 export function setManualExercise(
     measures: number,
     signature: TimeSignature,
