@@ -1,4 +1,4 @@
-name: Deploy TaktControl to GitHub Pages
+name: Deploy pick-control to GitHub Pages
 
 on:
   push:

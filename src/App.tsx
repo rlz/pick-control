@@ -695,10 +695,12 @@ function App() {
         >
             <header className="relative z-30 flex items-center overflow-visible border-b border-slate-800 bg-slate-900/90 px-5 backdrop-blur md:px-7">
                 <div className="flex items-center gap-2 text-lg font-bold tracking-tight text-indigo-300">
-                    <span className="grid size-8 place-items-center rounded-lg bg-indigo-400/15 text-xl">
-                        ◒
-                    </span>
-                    <span>TaktControl</span>
+                    <img
+                        src={`${import.meta.env.BASE_URL}icon.svg`}
+                        alt=""
+                        className="size-8 shrink-0 rounded-lg"
+                    />
+                    <span>Pick Control</span>
                 </div>
                 <h1 className="absolute left-1/2 m-0 hidden -translate-x-1/2 rounded-full border border-slate-700 bg-slate-800 px-3 py-1 text-sm font-medium text-slate-300 sm:block">
                     {signature} <span className="px-1 text-slate-500">·</span> {measures} measures

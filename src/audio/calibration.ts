@@ -19,11 +19,13 @@ export const defaultDetectorParameters: DetectorParameters = {
     minIntervalMs: 160,
 }
 
-const storageKey = 'taktcontrol.audio-calibration.v1'
+const storageKey = 'pick-control.audio-calibration.v1'
+const legacyStorageKey = 'taktcontrol.audio-calibration.v1'
 
 export function getAudioCalibration(): AudioCalibration | null {
     try {
-        const value = window.localStorage.getItem(storageKey)
+        const value =
+            window.localStorage.getItem(storageKey) ?? window.localStorage.getItem(legacyStorageKey)
         return value ? (JSON.parse(value) as AudioCalibration) : null
     } catch {
         return null

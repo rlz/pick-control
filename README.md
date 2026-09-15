@@ -1,6 +1,6 @@
-# TaktControl
+# pick-control
 
-TaktControl is a browser-based rhythm trainer designed for guitar practice. It generates short rhythmic exercises, provides a count-in and metronome, listens for playing through the microphone, and shows the detected attacks against the written rhythm.
+pick-control is a browser-based rhythm trainer designed for guitar practice. It generates short rhythmic exercises, provides a count-in and metronome, listens for playing through the microphone, and shows the detected attacks against the written rhythm.
 
 The interface is styled with Tailwind CSS and the score is engraved with VexFlow.
 

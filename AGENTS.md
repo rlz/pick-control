@@ -1,4 +1,4 @@
-# TaktControl implementation notes
+# pick-control implementation notes
 
 ## Triplet notation
 

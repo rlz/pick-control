@@ -4,9 +4,10 @@ import type { GenerationOptions } from '../domain/exercise'
 import { findPresetNumber } from '../domain/stickControlPresets'
 import type { ExerciseNote, PickStroke, TimeSignature } from '../types'
 
-const STORAGE_KEY = 'taktcontrol.exercise.v1'
-const LEGACY_STORAGE_KEY = 'rithme.exercise.v1'
-const FAVORITES_STORAGE_KEY = 'taktcontrol.favorite-exercises.v1'
+const STORAGE_KEY = 'pick-control.exercise.v1'
+const LEGACY_STORAGE_KEYS = ['taktcontrol.exercise.v1', 'rithme.exercise.v1']
+const FAVORITES_STORAGE_KEY = 'pick-control.favorite-exercises.v1'
+const LEGACY_FAVORITES_STORAGE_KEY = 'taktcontrol.favorite-exercises.v1'
 export const MIN_BPM = 45
 export const MAX_BPM = 180
 export const MIN_TEMPO_STEP = 1
@@ -93,7 +94,7 @@ function loadExercise(): StoredExercise {
     try {
         const saved = JSON.parse(
             window.localStorage.getItem(STORAGE_KEY) ??
-                window.localStorage.getItem(LEGACY_STORAGE_KEY) ??
+                LEGACY_STORAGE_KEYS.map((key) => window.localStorage.getItem(key)).find(Boolean) ??
                 'null',
         )
         return isStoredExercise(saved)
@@ -159,7 +160,11 @@ function isFavoriteExercise(value: unknown): value is FavoriteExercise {
 function loadFavorites(): FavoriteExercise[] {
     if (typeof window === 'undefined') return []
     try {
-        const saved = JSON.parse(window.localStorage.getItem(FAVORITES_STORAGE_KEY) ?? '[]')
+        const saved = JSON.parse(
+            window.localStorage.getItem(FAVORITES_STORAGE_KEY) ??
+                window.localStorage.getItem(LEGACY_FAVORITES_STORAGE_KEY) ??
+                '[]',
+        )
         return Array.isArray(saved) ? saved.filter(isFavoriteExercise) : []
     } catch {
         return []
