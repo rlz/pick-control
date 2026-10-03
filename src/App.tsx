@@ -1,38 +1,20 @@
-import { type CSSProperties, useEffect, useRef, useState } from 'react'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import {
-    faGear,
-    faMicrophone,
-    faPen,
-    faPlay,
-    faPlus,
-    faRepeat,
-    faRotateRight,
-    faStop,
-    faStar,
-    faTrash,
-    faVolumeHigh,
-} from '@fortawesome/free-solid-svg-icons'
+import { useEffect, useRef, useState } from 'react'
 import { useSnapshot } from 'valtio'
-import { getAudioCalibration, Metronome, listenForOnsets, playRhythmPattern } from './audio'
-import { Measure } from './components/Measure'
-import { MeasureEditor } from './components/MeasureEditor'
-import { ExerciseSettingsModal } from './components/ExerciseSettingsModal'
-import { AudioCalibrationModal } from './components/AudioCalibrationModal'
-import { notesToSteps, notesToStrokes, stepsToNotes } from './domain/measureSteps'
-import type { StepKind } from './domain/measureSteps'
+import { replaceHits, selectMeasure, sessionStore, setCalibrationOpen, setSettingsOpen, setTempoOpen, toggleTempoOpen, uiStore } from './store/sessionStore'
+import type { CompletedLoopRun } from './store/sessionStore'
+import { AppHeader } from './components/AppHeader'
+import { AppDialogs, type AppDialogsHandle } from './components/AppDialogs'
+import { PlaybackControls } from './components/PlaybackControls'
+import { ExerciseWorkspace } from './components/ExerciseWorkspace'
 import { TimingDetail } from './components/TimingDetail'
 import { signatures } from './domain/exercise'
+import { useSessionController } from './hooks/useSessionController'
 import type { GenerationOptions } from './domain/exercise'
 import {
     addCurrentExerciseToFavorites,
     exerciseStore,
     favoritesStore,
     generateExerciseWithSettings,
-    MAX_BPM,
-    MIN_BPM,
-    MAX_TEMPO_STEP,
-    MIN_TEMPO_STEP,
     replaceMeasureNotes,
     setBpm,
     setExerciseComment,
@@ -50,10 +32,8 @@ import {
     removeFavoriteExercise,
 } from './store/exerciseStore'
 import type { FavoriteExercise } from './store/exerciseStore'
-import type { ExerciseNote, PickStroke, PlayerHit, TimeSignature } from './types'
+import type { ExerciseNote, PlayerHit, TimeSignature } from './types'
 import { presetToExercise, type StickControlPreset } from './domain/stickControlPresets'
-
-const currentTime = () => performance.now()
 
 const exerciseSourceLabels = {
     manual: 'Editor',
@@ -62,23 +42,11 @@ const exerciseSourceLabels = {
     favorite: 'Favorite',
 } as const
 
-type CompletedLoopRun = {
-    startedAt: number
-    duration: number
-    measureMs: number
-    bpm: number
-    hits: PlayerHit[]
-}
-
-function rangeStyle(value: number, min: number, max: number): CSSProperties {
-    return {
-        '--range-value-position': `${((value - min) / (max - min)) * 100}%`,
-    } as CSSProperties
-}
-
 function App() {
     const storedExercise = useSnapshot(exerciseStore)
     const storedFavorites = useSnapshot(favoritesStore)
+    const session = useSnapshot(sessionStore)
+    const ui = useSnapshot(uiStore)
     const { measures, generationOptions, signature, bpm, tempoCeiling, tempoProgram, tempoStep } =
         storedExercise
     const exerciseSourceLabel = exerciseSourceLabels[storedExercise.source]
@@ -88,160 +56,32 @@ function App() {
         generationOptions: { ...favorite.generationOptions },
         exercise: favorite.exercise.map((note) => ({ ...note })),
     }))
-    const [hits, setHits] = useState<PlayerHit[]>([])
-    const [loopRuns, setLoopRuns] = useState<CompletedLoopRun[]>([])
-    const [state, setState] = useState<'ready' | 'count-in' | 'playing' | 'finished'>('ready')
-    const [countInBeat, setCountInBeat] = useState(0)
-    const [selectedMeasure, setSelectedMeasure] = useState<number | null>(null)
-    const [activeSlot, setActiveSlot] = useState(-1)
-    const [activeMeasure, setActiveMeasure] = useState(-1)
-    const [previewing, setPreviewing] = useState<'all' | number | null>(null)
-    const [isLooping, setIsLooping] = useState(() => tempoProgram !== 'steady')
-    const [settingsOpen, setSettingsOpen] = useState(false)
-    const [isCommentEditing, setIsCommentEditing] = useState(false)
-    const [commentDraft, setCommentDraft] = useState('')
-    const [tempoOpen, setTempoOpen] = useState(false)
-    const [calibrationOpen, setCalibrationOpen] = useState(false)
-    const [activeBpm, setActiveBpm] = useState<number | null>(null)
-    const [editorMeasure, setEditorMeasure] = useState<number | null>(null)
-    const [editorSteps, setEditorSteps] = useState<StepKind[]>([])
-    const [editorStrokes, setEditorStrokes] = useState<(PickStroke | undefined)[]>([])
-    const [confirmation, setConfirmation] = useState<{
-        title: string
-        description: string
-        confirmLabel: string
-        onConfirm: () => void
-    } | null>(null)
-    const cleanup = useRef<null | (() => void)>(null)
-    const recordingRequest = useRef(0)
-    const metronome = useRef(new Metronome())
-    const startedAt = useRef(0)
-    const hitsRef = useRef<PlayerHit[]>([])
-    const completedLoopRuns = useRef<CompletedLoopRun[]>([])
-    const timer = useRef<number | null>(null)
-    const isLoopingRef = useRef(tempoProgram !== 'steady')
-    const tempoRun = useRef<{
-        bpm: number
-        baseBpm: number
-        ceiling: number
-        step: number
-        program: typeof tempoProgram
-        returning: boolean
-    } | null>(null)
-    const activeRunMs = useRef(0)
-    const previewStop = useRef<null | (() => void)>(null)
-    const previewTimer = useRef<number | null>(null)
-    const progressFrame = useRef<number | null>(null)
-    const previewRequest = useRef(0)
-    const notationScroll = useRef<HTMLDivElement>(null)
+    const controller = useSessionController({ bpm, measures, signature, tempoCeiling, tempoStep, tempoProgram, exercise })
+    const { isLooping, forceLooping, isTempoLoop, displayedBpm, measureMs, countInBeats,
+        stopForInteraction, reset, stopPreview, previewPattern, startExercise, toggleLooping, timingHits } = controller
     const spec = signatures[signature]
-    const displayedBpm = activeBpm ?? bpm
-    const beatMs = 60000 / displayedBpm
-    const measureMs = beatMs * spec.beats
-    const countInBeats = Number(signature.split('/')[0])
-    const exerciseBeats = spec.beats * measures
-    const isTempoLoop = tempoProgram !== 'steady'
+    const hits: PlayerHit[] = session.hits.map((hit) => ({ ...hit }))
+    const loopRuns: CompletedLoopRun[] = session.loopRuns.map((run) => ({ ...run, hits: run.hits.map((hit) => ({ ...hit })) }))
+    const { phase: state, countInBeat, activeSlot, activeMeasure, previewing, activeBpm } = session
+    const { selectedMeasure, settingsOpen, tempoOpen, calibrationOpen } = ui
+    const [editorMeasure, setEditorMeasure] = useState<number | null>(null)
+    const confirmationDialog = useRef<AppDialogsHandle>(null)
+    const notationScroll = useRef<HTMLDivElement>(null)
 
-    function stopForInteraction() {
-        if (state === 'count-in' || state === 'playing') reset(false)
-    }
-
-    // A screen wake lock is released whenever the document becomes hidden.
-    // Keep it requested for the complete run (including the count-in), and
-    // request it again when the player returns to the app.
     useEffect(() => {
-        const keepScreenAwake = state === 'count-in' || state === 'playing'
-        if (!keepScreenAwake || !('wakeLock' in navigator)) return
-
-        let cancelled = false
-        let wakeLock: WakeLockSentinel | null = null
-
-        const release = () => {
-            if (!wakeLock) return
-            const sentinel = wakeLock
-            wakeLock = null
-            void sentinel.release()
-        }
-
-        const requestWakeLock = async () => {
-            if (cancelled || wakeLock || document.visibilityState !== 'visible') return
-
-            try {
-                const sentinel = await navigator.wakeLock.request('screen')
-                if (cancelled || document.visibilityState !== 'visible') {
-                    void sentinel.release()
-                    return
-                }
-                wakeLock = sentinel
-                sentinel.addEventListener('release', () => {
-                    if (wakeLock === sentinel) wakeLock = null
-                })
-            } catch {
-                // Wake Lock is optional: unsupported browsers and denied requests
-                // should not prevent an exercise from running.
-            }
-        }
-
-        const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible') void requestWakeLock()
-        }
-
-        void requestWakeLock()
-        document.addEventListener('visibilitychange', handleVisibilityChange)
-        return () => {
-            cancelled = true
-            document.removeEventListener('visibilitychange', handleVisibilityChange)
-            release()
-        }
-    }, [state])
-
-    useEffect(
-        () => () => {
-            recordingRequest.current++
-            cleanup.current?.()
-            metronome.current.stop()
-            if (timer.current) clearTimeout(timer.current)
-            previewStop.current?.()
-            if (previewTimer.current) clearTimeout(previewTimer.current)
-            if (progressFrame.current) cancelAnimationFrame(progressFrame.current)
-        },
-        [],
-    )
-    useEffect(() => {
-        if (
-            selectedMeasure === null ||
-            settingsOpen ||
-            calibrationOpen ||
-            editorMeasure !== null ||
-            tempoOpen
-        ) {
-            return
-        }
-
+        if (selectedMeasure === null || settingsOpen || calibrationOpen || editorMeasure !== null || tempoOpen) return
         const selectAdjacentMeasure = (event: KeyboardEvent) => {
             if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
             if (event.metaKey || event.ctrlKey || event.altKey) return
             const target = event.target
-            if (
-                target instanceof HTMLElement &&
-                target.closest('input, select, textarea, [contenteditable="true"]')
-            ) {
-                return
-            }
-
+            if (target instanceof HTMLElement && target.closest('input, select, textarea, [contenteditable="true"]')) return
             event.preventDefault()
-            setSelectedMeasure((current) => {
-                if (current === null) return current
-                return Math.min(
-                    measures - 1,
-                    Math.max(0, current + (event.key === 'ArrowLeft' ? -1 : 1)),
-                )
-            })
+            selectMeasure((current) => current === null ? current : Math.min(measures - 1, Math.max(0, current + (event.key === 'ArrowLeft' ? -1 : 1))))
         }
-
         window.addEventListener('keydown', selectAdjacentMeasure)
         return () => window.removeEventListener('keydown', selectAdjacentMeasure)
     }, [calibrationOpen, editorMeasure, measures, selectedMeasure, settingsOpen, tempoOpen])
+
     useEffect(() => {
         if (activeMeasure < 0 || (state !== 'playing' && previewing === null)) return
         const measure = notationScroll.current?.querySelector<HTMLElement>(
@@ -271,61 +111,13 @@ function App() {
         stopForInteraction()
         reset()
         generateExerciseWithSettings(nextMeasures, nextOptions, nextSignature)
-        setSelectedMeasure(null)
+        selectMeasure(null)
         setSettingsOpen(false)
-    }
-    function reset(clearLoopHistory = true) {
-        if (!clearLoopHistory) saveActiveRun()
-        recordingRequest.current++
-        stopPreview()
-        cleanup.current?.()
-        cleanup.current = null
-        metronome.current.stop()
-        if (timer.current) clearTimeout(timer.current)
-        setHits([])
-        hitsRef.current = []
-        if (clearLoopHistory) {
-            setLoopRuns([])
-            completedLoopRuns.current = []
-        }
-        setState('ready')
-        setCountInBeat(0)
-        setActiveSlot(-1)
-        setActiveMeasure(-1)
-        setActiveBpm(null)
-        tempoRun.current = null
-        activeRunMs.current = 0
-        startedAt.current = 0
-    }
-    function addLoopRun(run: CompletedLoopRun) {
-        completedLoopRuns.current.push(run)
-        setLoopRuns(completedLoopRuns.current.map((entry) => ({ ...entry, hits: [...entry.hits] })))
-    }
-    function saveActiveRun() {
-        if (startedAt.current <= 0 || activeRunMs.current <= 0) return
-
-        const duration = Math.min(
-            activeRunMs.current,
-            Math.max(0, currentTime() - startedAt.current),
-        )
-        if (duration <= 0) return
-
-        const measureMs = activeRunMs.current / measures
-        addLoopRun({
-            startedAt: startedAt.current,
-            duration,
-            measureMs,
-            bpm: tempoRun.current?.bpm ?? activeBpm ?? bpm,
-            hits: hitsRef.current.filter((hit) => hit.time < duration),
-        })
     }
     function openMeasureEditor() {
         if (selectedMeasure === null) return
         stopForInteraction()
         stopPreview()
-        const measureNotes = exercise.filter((note) => note.measure === selectedMeasure)
-        setEditorSteps(notesToSteps(measureNotes, spec.slots))
-        setEditorStrokes(notesToStrokes(measureNotes, spec.slots))
         setEditorMeasure(selectedMeasure)
     }
     function openExerciseSettings() {
@@ -333,25 +125,9 @@ function App() {
         stopPreview()
         setSettingsOpen(true)
     }
-    function setEditorStroke(step: number, stroke: PickStroke | undefined) {
-        setEditorStrokes((previous) => {
-            const next = [...previous]
-            next[step] = stroke
-            return next
-        })
-    }
-    function setEditorStep(step: number, kind: StepKind) {
-        setEditorSteps((previous) => {
-            const next = [...previous]
-            next[step] = kind
-            return next
-        })
-    }
-    function saveMeasureEditor() {
-        if (editorMeasure === null) return
-        const replacement = stepsToNotes(editorSteps, editorMeasure, editorStrokes)
-        replaceMeasureNotes(editorMeasure, replacement)
-        setHits([])
+    function saveMeasureEditor(measure: number, replacement: ExerciseNote[]) {
+        replaceMeasureNotes(measure, replacement)
+        replaceHits([])
         setEditorMeasure(null)
     }
     function changeNotation(action: () => void) {
@@ -362,49 +138,49 @@ function App() {
     function addMeasure() {
         changeNotation(() => {
             addEmptyMeasure()
-            setSelectedMeasure(measures)
+            selectMeasure(measures)
         })
     }
     function duplicateSelectedMeasure(measure: number) {
         changeNotation(() => {
             duplicateMeasure(measure)
-            setSelectedMeasure(measure + 1)
+            selectMeasure(measure + 1)
         })
     }
     function moveSelectedMeasure(measure: number, direction: -1 | 1) {
         changeNotation(() => {
             moveMeasure(measure, direction)
-            setSelectedMeasure(measure + direction)
+            selectMeasure(measure + direction)
         })
     }
     function deleteSelectedMeasure(measure: number) {
         changeNotation(() => {
             deleteMeasure(measure)
-            setSelectedMeasure(Math.min(measure, measures - 2))
+            selectMeasure(Math.min(measure, measures - 2))
         })
     }
     function requestClearExercise() {
         stopForInteraction()
-        setConfirmation({
+        confirmationDialog.current?.requestConfirmation({
             title: 'Clear exercise?',
             description: 'All notes will be removed and the exercise will contain one empty measure.',
             confirmLabel: 'Clear',
             onConfirm: () => {
                 changeNotation(clearExercise)
-                setSelectedMeasure(null)
+                selectMeasure(null)
             },
         })
     }
     function requestSignatureChange(nextSignature: TimeSignature) {
         if (nextSignature === signature) return
         stopForInteraction()
-        setConfirmation({
+        confirmationDialog.current?.requestConfirmation({
             title: 'Change time signature?',
             description: `This will remove all notes and reset the exercise to one empty ${nextSignature} measure.`,
             confirmLabel: 'Change',
             onConfirm: () => {
                 changeNotation(() => changeExerciseSignature(nextSignature))
-                setSelectedMeasure(null)
+                selectMeasure(null)
             },
         })
     }
@@ -412,285 +188,15 @@ function App() {
         stopForInteraction()
         reset()
         setPresetExercise(presetToExercise(preset), preset.number)
-        setSelectedMeasure(null)
+        selectMeasure(null)
         setSettingsOpen(false)
     }
     function chooseFavorite(favorite: FavoriteExercise) {
         stopForInteraction()
         reset()
         loadFavoriteExercise(favorite)
-        setSelectedMeasure(null)
+        selectMeasure(null)
         setSettingsOpen(false)
-    }
-    function startEditingComment() {
-        setCommentDraft(storedExercise.comment)
-        setIsCommentEditing(true)
-    }
-    function saveComment() {
-        setExerciseComment(commentDraft)
-        setIsCommentEditing(false)
-    }
-    function stopPreview() {
-        previewRequest.current++
-        previewStop.current?.()
-        previewStop.current = null
-        if (previewTimer.current) clearTimeout(previewTimer.current)
-        if (progressFrame.current) cancelAnimationFrame(progressFrame.current)
-        progressFrame.current = null
-        previewTimer.current = null
-        setPreviewing(null)
-        if (state !== 'playing') {
-            setActiveMeasure(-1)
-            setActiveSlot(-1)
-        }
-    }
-    function showProgress(
-        startAt: number,
-        measureStart: number,
-        measureCount: number,
-        currentMeasureMs = measureMs,
-    ) {
-        const update = () => {
-            const elapsed = performance.now() - startAt
-            if (elapsed < 0) {
-                progressFrame.current = requestAnimationFrame(update)
-                return
-            }
-            const measureOffset = Math.min(Math.floor(elapsed / currentMeasureMs), measureCount - 1)
-            const elapsedInMeasure = elapsed - measureOffset * currentMeasureMs
-            setActiveMeasure(measureStart + measureOffset)
-            setActiveSlot(
-                Math.min(
-                    spec.slots - 1,
-                    Math.floor((elapsedInMeasure / currentMeasureMs) * spec.slots),
-                ),
-            )
-            if (elapsed < measureCount * currentMeasureMs) {
-                progressFrame.current = requestAnimationFrame(update)
-            }
-        }
-        progressFrame.current = requestAnimationFrame(update)
-    }
-    async function previewPattern(measure?: number, notes = exercise) {
-        stopForInteraction()
-        setTempoOpen(false)
-        const target = measure ?? 'all'
-        if (previewing === target) {
-            stopPreview()
-            return
-        }
-        stopPreview()
-        const requestId = ++previewRequest.current
-        const measureCount = measure === undefined ? measures : 1
-        setPreviewing(target)
-        setActiveMeasure(measure ?? 0)
-        setActiveSlot(-1)
-        try {
-            const preview = await playRhythmPattern(
-                notes,
-                bpm,
-                spec.beats,
-                spec.slots,
-                measure ?? 0,
-                measureCount,
-            )
-            // The user may have stopped the preview while the soundfont was loading.
-            if (previewRequest.current !== requestId) {
-                preview.stop()
-                return
-            }
-            previewStop.current = preview.stop
-            showProgress(preview.startsAt, measure ?? 0, measureCount)
-        } catch {
-            setPreviewing(null)
-            setActiveMeasure(-1)
-            setActiveSlot(-1)
-            alert('Could not load the guitar preview sound.')
-            return
-        }
-        previewTimer.current = window.setTimeout(stopPreview, 80 + measureCount * measureMs + 170)
-    }
-    async function startExercise() {
-        reset()
-        setSelectedMeasure(null)
-        const request = ++recordingRequest.current
-        setCalibrationOpen(false)
-        setTempoOpen(false)
-        tempoRun.current = {
-            bpm,
-            baseBpm: bpm,
-            ceiling: Math.max(bpm, tempoCeiling),
-            step: tempoStep,
-            program: tempoProgram,
-            returning: false,
-        }
-        setActiveBpm(bpm)
-        setState('count-in')
-        try {
-            const calibration = getAudioCalibration()
-            const stopListening = await listenForOnsets(
-                (strength, detectedAt) => {
-                    const calibrationLatency = calibration?.latencyMs ?? 0
-                    const historicalRun = completedLoopRuns.current.find(
-                        (run) =>
-                            detectedAt >= run.startedAt &&
-                            detectedAt < run.startedAt + run.duration,
-                    )
-                    if (historicalRun) {
-                        historicalRun.hits.push({
-                            time: detectedAt - historicalRun.startedAt - calibrationLatency,
-                            strength,
-                        })
-                        setLoopRuns(
-                            completedLoopRuns.current.map((run) => ({
-                                ...run,
-                                hits: [...run.hits],
-                            })),
-                        )
-                        return
-                    }
-                    const detectedTime = detectedAt - startedAt.current - calibrationLatency
-                    // The first audio block can begin a few milliseconds before
-                    // the visual zero after latency correction. Keep that attack
-                    // and pin it to the first beat instead of silently dropping it.
-                    if (
-                        startedAt.current > 0 &&
-                        detectedTime >= -120 &&
-                        detectedTime < activeRunMs.current
-                    ) {
-                        const hit = { time: Math.max(0, detectedTime), strength }
-                        setHits((previous) => {
-                            const next = [...previous, hit]
-                            hitsRef.current = next
-                            return next
-                        })
-                    }
-                },
-                {
-                    deviceId: calibration?.deviceId || undefined,
-                    detector: calibration?.detector,
-                    isDetecting: () => startedAt.current > 0,
-                },
-            )
-            if (request !== recordingRequest.current) {
-                stopListening()
-                return
-            }
-            cleanup.current = stopListening
-            metronome.current.start(
-                () => 60000 / (tempoRun.current?.bpm ?? bpm),
-                (beat, playedAt) => {
-                    if (request !== recordingRequest.current) return
-                    if (beat < countInBeats) {
-                        setCountInBeat(beat + 1)
-                    } else if (beat === countInBeats) {
-                        beginRecording(request, playedAt)
-                    }
-                    if (beat - countInBeats === exerciseBeats - 1) {
-                        metronome.current.stop()
-                    }
-                },
-            )
-        } catch {
-            if (request !== recordingRequest.current) return
-            setState('ready')
-            alert('Microphone permission is needed to listen to your playing.')
-        }
-    }
-    function beginRecording(request: number, playedAt = currentTime()) {
-        startedAt.current = playedAt
-        setState('playing')
-        showProgress(startedAt.current, 0, measures)
-        scheduleExerciseEnd(tempoRun.current?.bpm ?? bpm, request)
-    }
-    function startWorkingMetronome(request: number) {
-        let firstBeatAt = 0
-        metronome.current.start(
-            () => 60000 / (tempoRun.current?.bpm ?? bpm),
-            (beat, playedAt) => {
-                if (request !== recordingRequest.current) return
-                if (beat === 0) firstBeatAt = playedAt
-                if (beat === exerciseBeats - 1) metronome.current.stop()
-            },
-        )
-        return firstBeatAt
-    }
-    function scheduleExerciseEnd(runBpm: number, request: number) {
-        const runMs = (60000 / runBpm) * spec.beats * measures
-        activeRunMs.current = runMs
-        timer.current = window.setTimeout(() => {
-            const nextBpm = nextTempoBpm()
-            if (
-                nextBpm !== null &&
-                (isLoopingRef.current || tempoRun.current?.program === 'increase-and-return')
-            ) {
-                if (request !== recordingRequest.current) return
-                metronome.current.stop()
-                addLoopRun({
-                    startedAt: startedAt.current,
-                    duration: runMs,
-                    measureMs: runMs / measures,
-                    bpm: runBpm,
-                    hits: hitsRef.current,
-                })
-                hitsRef.current = []
-                setHits([])
-                startedAt.current = startWorkingMetronome(request)
-                setActiveMeasure(0)
-                setActiveSlot(-1)
-                setActiveBpm(nextBpm)
-                showProgress(startedAt.current, 0, measures, (60000 / nextBpm) * spec.beats)
-                scheduleExerciseEnd(nextBpm, request)
-                return
-            }
-            metronome.current.stop()
-            // Keep the microphone alive long enough to drain the detector's
-            // one-second analysis buffer, so final notes can still be scored.
-            const stopListening = cleanup.current
-            window.setTimeout(() => stopListening?.(), 1050)
-            if (progressFrame.current) cancelAnimationFrame(progressFrame.current)
-            setState('finished')
-            setActiveSlot(-1)
-            setActiveMeasure(-1)
-            setActiveBpm(null)
-            tempoRun.current = null
-        }, runMs + 30)
-    }
-    function nextTempoBpm() {
-        const run = tempoRun.current
-        if (!run) return null
-        if (run.program === 'increase-and-return') {
-            if (!run.returning && run.bpm >= run.ceiling) run.returning = true
-            if (run.returning) {
-                if (run.bpm <= run.baseBpm) {
-                    return null
-                } else {
-                    run.bpm = Math.max(run.baseBpm, run.bpm - run.step)
-                }
-            } else {
-                run.bpm = Math.min(run.ceiling, run.bpm + run.step)
-            }
-        } else if (run.program === 'increase') {
-            run.bpm = Math.min(run.ceiling, run.bpm + run.step)
-        }
-        return run.bpm
-    }
-    function toggleLooping() {
-        if (isTempoLoop) return
-        stopForInteraction()
-        setIsLooping((previous) => {
-            const next = !previous
-            isLoopingRef.current = next
-            return next
-        })
-    }
-    const timingHits = (source: PlayerHit[], i: number, sourceMeasureMs = measureMs) => {
-        const edgeAllowanceMs = 120
-        const measureStart = i * sourceMeasureMs
-        const measureEnd = (i + 1) * sourceMeasureMs
-        return source.filter(
-            (hit) => hit.time >= measureStart - edgeAllowanceMs && hit.time < measureEnd,
-        )
     }
     return (
         <main
@@ -700,522 +206,129 @@ function App() {
                     : 'grid-rows-[3.5rem_minmax(0,1fr)_5.5rem] md:grid-rows-[4rem_minmax(0,1fr)_6rem]'
             }`}
         >
-            <header className="relative z-30 flex items-center overflow-visible border-b border-slate-800 bg-slate-900/90 px-5 backdrop-blur md:px-7">
-                <div className="flex items-center gap-2 text-lg font-bold tracking-tight text-indigo-300">
-                    <img
-                        src={`${import.meta.env.BASE_URL}icon.svg`}
-                        alt=""
-                        className="size-8 shrink-0 rounded-lg"
-                    />
-                    <span>Pick Control</span>
-                </div>
-                <h1 className="absolute left-1/2 m-0 hidden -translate-x-1/2 rounded-full border border-slate-700 bg-slate-800 px-3 py-1 text-sm font-medium text-slate-300 sm:block">
-                    {signature} <span className="px-1 text-slate-500">·</span> {measures} measures
-                </h1>
-                <div className="ml-auto flex items-center gap-2">
-                    <button
-                        className="header-control"
-                        type="button"
-                        onClick={() => {
-                            stopForInteraction()
-                            stopPreview()
-                            setCalibrationOpen(true)
-                        }}
-                        aria-label="Открыть калибровку аудиовхода"
-                        aria-expanded={calibrationOpen}
-                    >
-                        <FontAwesomeIcon icon={faMicrophone} />
-                        <span>Калибровка</span>
-                    </button>
-                    <button
-                        className="header-control"
-                        type="button"
-                        onClick={openExerciseSettings}
-                        aria-label="Open exercise settings"
-                        aria-expanded={settingsOpen}
-                    >
-                        <FontAwesomeIcon icon={faGear} />
-                        <span>Exercise</span>
-                    </button>
-                    <div className="tempo-control">
-                        <button
-                            className="header-control"
-                            type="button"
-                            onClick={() => {
-                                stopForInteraction()
-                                setTempoOpen((open) => !open)
-                            }}
-                            aria-expanded={tempoOpen}
-                            aria-label="Change tempo"
-                        >
-                            <span className="tempo-value">{displayedBpm}</span>
-                            <span>BPM</span>
-                        </button>
-                        {tempoOpen ? (
-                            <div className="tempo-popover">
-                                <label>
-                                    Tempo <output>{displayedBpm} BPM</output>
-                                    <input
-                                        type="range"
-                                        min={MIN_BPM}
-                                        max={MAX_BPM}
-                                        step="1"
-                                        value={bpm}
-                                        style={rangeStyle(bpm, MIN_BPM, MAX_BPM)}
-                                        onChange={(event) => setBpm(Number(event.target.value))}
-                                        disabled={state === 'count-in' || state === 'playing'}
-                                    />
-                                </label>
-                                <label>
-                                    Tempo program
-                                    <select
-                                        value={tempoProgram}
-                                        onChange={(event) => {
-                                            const nextProgram = event.target
-                                                .value as typeof tempoProgram
-                                            setTempoProgram(nextProgram)
-                                            if (nextProgram !== 'steady') {
-                                                isLoopingRef.current = true
-                                                setIsLooping(true)
-                                            }
-                                        }}
-                                        disabled={state === 'count-in' || state === 'playing'}
-                                    >
-                                        <option value="steady">Keep tempo</option>
-                                        <option value="increase">Increase on each loop</option>
-                                        <option value="increase-and-return">
-                                            Increase, then return
-                                        </option>
-                                    </select>
-                                </label>
-                                {tempoProgram !== 'steady' ? (
-                                    <>
-                                        <label>
-                                            Change per pass <output>{tempoStep} BPM</output>
-                                            <input
-                                                type="range"
-                                                min={MIN_TEMPO_STEP}
-                                                max={MAX_TEMPO_STEP}
-                                                step="1"
-                                                value={tempoStep}
-                                                style={rangeStyle(
-                                                    tempoStep,
-                                                    MIN_TEMPO_STEP,
-                                                    MAX_TEMPO_STEP,
-                                                )}
-                                                onChange={(event) =>
-                                                    setTempoStep(Number(event.target.value))
-                                                }
-                                                disabled={
-                                                    state === 'count-in' || state === 'playing'
-                                                }
-                                            />
-                                        </label>
-                                        <label>
-                                            Maximum <output>{tempoCeiling} BPM</output>
-                                            <input
-                                                className="tempo-ceiling-slider"
-                                                type="range"
-                                                min={MIN_BPM}
-                                                max={MAX_BPM}
-                                                step="1"
-                                                value={tempoCeiling}
-                                                style={
-                                                    {
-                                                        ...rangeStyle(
-                                                            tempoCeiling,
-                                                            MIN_BPM,
-                                                            MAX_BPM,
-                                                        ),
-                                                        '--tempo-minimum-position': `${
-                                                            ((bpm - MIN_BPM) /
-                                                                (MAX_BPM - MIN_BPM)) *
-                                                            100
-                                                        }%`,
-                                                    } as CSSProperties
-                                                }
-                                                onChange={(event) =>
-                                                    setTempoCeiling(Number(event.target.value))
-                                                }
-                                                disabled={
-                                                    state === 'count-in' || state === 'playing'
-                                                }
-                                            />
-                                        </label>
-                                    </>
-                                ) : null}
-                            </div>
-                        ) : null}
-                    </div>
-                </div>
-            </header>
-            <div className="app-body grid min-h-0 overflow-hidden">
-                <section
-                    className="relative grid min-h-0 min-w-0 overflow-hidden bg-slate-950"
-                    onClick={() => setTempoOpen(false)}
-                >
-                    <div className="workspace-top-actions">
-                        <select
-                            className="signature-control"
-                            value={signature}
-                            onChange={(event) =>
-                                requestSignatureChange(event.target.value as TimeSignature)
-                            }
-                            aria-label="Change time signature"
-                            title="Change time signature"
-                        >
-                            <option>4/4</option>
-                            <option>3/4</option>
-                            <option>6/8</option>
-                        </select>
-                        <button
-                            className="workspace-action"
-                            type="button"
-                            onClick={addMeasure}
-                            aria-label="Add empty measure"
-                            title="Add empty measure"
-                        >
-                            <FontAwesomeIcon icon={faPlus} />
-                        </button>
-                        <button
-                            className="workspace-action danger"
-                            type="button"
-                            onClick={requestClearExercise}
-                            aria-label="Clear exercise"
-                            title="Clear exercise"
-                        >
-                            <FontAwesomeIcon icon={faTrash} />
-                        </button>
-                    </div>
-                    <div className="notation-scroll p-5 md:p-7" ref={notationScroll}>
-                        <div
-                            className="notation-source"
-                            aria-label={`Exercise source: ${exerciseSourceLabel}`}
-                        >
-                            <span>{exerciseSourceLabel}</span>
-                        </div>
-                        <div className="exercise-comment">
-                            {isCommentEditing ? (
-                                <>
-                                    <input
-                                        type="text"
-                                        value={commentDraft}
-                                        onChange={(event) => setCommentDraft(event.target.value)}
-                                        placeholder="Add a note about this exercise"
-                                        autoFocus
-                                    />
-                                    <button
-                                        type="button"
-                                        className="comment-save"
-                                        onClick={() => {
-                                            stopForInteraction()
-                                            saveComment()
-                                        }}
-                                    >
-                                        Save
-                                    </button>
-                                </>
-                            ) : (
-                                storedExercise.comment ? (
-                                    <>
-                                        <p>{storedExercise.comment}</p>
-                                        <button
-                                            type="button"
-                                            className="comment-edit"
-                                            onClick={() => {
-                                                stopForInteraction()
-                                                startEditingComment()
-                                            }}
-                                            aria-label="Edit exercise comment"
-                                            title="Edit comment"
-                                        >
-                                            <FontAwesomeIcon icon={faPen} />
-                                        </button>
-                                    </>
-                                ) : (
-                                    <button
-                                        type="button"
-                                        className="comment-edit"
-                                        onClick={() => {
-                                            stopForInteraction()
-                                            startEditingComment()
-                                        }}
-                                        aria-label="Add exercise comment"
-                                    >
-                                        Add comment
-                                    </button>
-                                )
-                            )}
-                            <button
-                                type="button"
-                                className={`favorite-button ${
-                                    storedExercise.source === 'favorite' ? 'is-favorite' : ''
-                                }`}
-                                onClick={() => {
-                                    stopForInteraction()
-                                    if (storedExercise.favoriteId) {
-                                        removeFavoriteExercise(storedExercise.favoriteId)
-                                    } else {
-                                        addCurrentExerciseToFavorites()
-                                    }
-                                }}
-                                aria-label={
-                                    storedExercise.favoriteId
-                                        ? 'Remove from favorites'
-                                        : 'Add to favorites'
-                                }
-                                title={
-                                    storedExercise.favoriteId
-                                        ? 'Remove from favorites'
-                                        : 'Add to favorites'
-                                }
-                            >
-                                <FontAwesomeIcon icon={faStar} />
-                            </button>
-                        </div>
-                        <div className="flex min-w-0 flex-wrap content-start pb-36">
-                            {Array.from({ length: measures }, (_, index) => (
-                                <Measure
-                                    key={index}
-                                    index={index}
-                                    signature={signature}
-                                    notes={exercise.filter((n) => n.measure === index)}
-                                    selected={selectedMeasure === index}
-                                    isActive={
-                                        (state === 'playing' || previewing !== null) &&
-                                        activeMeasure === index
-                                    }
-                                    activeSlot={
-                                        (state === 'playing' || previewing !== null) &&
-                                        activeMeasure === index
-                                            ? activeSlot
-                                            : -1
-                                    }
-                                    onClick={() => {
-                                        stopForInteraction()
-                                        setSelectedMeasure(
-                                            selectedMeasure === index ? null : index,
-                                        )
-                                    }}
-                                    onEdit={openMeasureEditor}
-                                    onDuplicate={() => duplicateSelectedMeasure(index)}
-                                    onMove={(direction) => moveSelectedMeasure(index, direction)}
-                                    onDelete={() => deleteSelectedMeasure(index)}
-                                    isEditingDisabled={false}
-                                    canDelete={measures > 1}
-                                    canMoveRight={index < measures - 1}
-                                />
-                            ))}
-                        </div>
-                    </div>
-                    {state === 'count-in' ? (
-                        <div
-                            className="count-in-overlay"
-                            aria-live="assertive"
-                            aria-atomic="true"
-                            role="status"
-                        >
-                            <span className="count-in-label">Get ready</span>
-                            <strong className="count-in-beat" key={countInBeat}>
-                                {countInBeat || 1}
-                            </strong>
-                            <span className="count-in-dots" aria-hidden="true">
-                                {Array.from({ length: countInBeats }, (_, index) => (
-                                    <i
-                                        className={index < countInBeat ? 'is-complete' : ''}
-                                        key={index}
-                                    />
-                                ))}
-                            </span>
-                        </div>
-                    ) : null}
-                </section>
-            </div>
-            <footer className="relative z-10 flex items-center justify-between gap-4 border-t border-slate-800 bg-slate-900 px-4 md:px-7">
-                <div className="flex min-w-0 flex-1 items-center gap-3">
-                    {selectedMeasure !== null ? (
-                        <TimingDetail
-                            measure={selectedMeasure}
-                            notes={exercise.filter((n) => n.measure === selectedMeasure)}
-                            runs={[
-                                ...loopRuns
-                                    .map((run) => ({
-                                        hits: timingHits(run.hits, selectedMeasure, run.measureMs),
-                                        measureMs: run.measureMs,
-                                        bpm: run.bpm,
-                                    }))
-                                    .filter((run) => run.hits.length),
-                                ...(timingHits(hits, selectedMeasure).length
-                                    ? [
-                                          {
-                                              hits: timingHits(hits, selectedMeasure),
-                                              measureMs,
-                                              bpm: displayedBpm,
-                                          },
-                                      ]
-                                    : []),
-                            ]}
-                            slots={spec.slots}
-                            beats={spec.beats}
-                            measureMs={measureMs}
-                            onPreview={() => previewPattern(selectedMeasure)}
-                            isPreviewing={previewing === selectedMeasure}
-                        />
-                    ) : null}
-                </div>
-                <div className="flex items-end gap-3 border-l border-slate-700 pl-4">
-                    <div className="flex flex-col items-center gap-1">
-                        <button
-                            className="icon-button"
-                            type="button"
-                            onClick={toggleLooping}
-                            disabled={isTempoLoop}
-                            aria-label={
-                                isTempoLoop
-                                    ? 'Loop is required by the tempo program'
-                                    : isLooping
-                                      ? 'Disable exercise loop'
-                                      : 'Enable exercise loop'
-                            }
-                            aria-pressed={isLooping}
-                            title={
-                                isTempoLoop
-                                    ? 'Loop is required by the tempo program'
-                                    : isLooping
-                                      ? 'Disable exercise loop'
-                                      : 'Loop exercise'
-                            }
-                        >
-                            <FontAwesomeIcon icon={faRepeat} />
-                        </button>
-                        <span className="text-[10px] font-medium text-slate-400">Loop</span>
-                    </div>
-                    <div className="flex flex-col items-center gap-1">
-                        <button
-                            className="icon-button"
-                            onClick={() => previewPattern()}
-                            aria-label={
-                                previewing === 'all' ? 'Stop full preview' : 'Preview exercise'
-                            }
-                            title={previewing === 'all' ? 'Stop preview' : 'Preview exercise'}
-                        >
-                            <FontAwesomeIcon icon={previewing === 'all' ? faStop : faVolumeHigh} />
-                        </button>
-                        <span className="text-[10px] font-medium text-slate-400">Listen</span>
-                    </div>
-                    <div className="flex flex-col items-center gap-1">
-                        <button
-                            className="icon-button"
-                            onClick={() => reset()}
-                            disabled={state === 'ready'}
-                            aria-label="Repeat exercise"
-                            title="Repeat exercise"
-                        >
-                            <FontAwesomeIcon icon={faRotateRight} />
-                        </button>
-                        <span className="text-[10px] font-medium text-slate-400">Restart</span>
-                    </div>
-                    <div className="flex flex-col items-center gap-1">
-                        <button
-                            className="icon-button primary"
-                            onClick={
-                                state === 'count-in' || state === 'playing'
-                                    ? () => reset(false)
-                                    : startExercise
-                            }
-                            aria-label={
-                                state === 'count-in' || state === 'playing'
-                                    ? 'Stop exercise'
-                                    : state === 'finished'
-                                      ? 'Play exercise again'
-                                      : 'Start exercise'
-                            }
-                            title={
-                                state === 'count-in' || state === 'playing'
-                                    ? 'Stop exercise'
-                                    : state === 'finished'
-                                      ? 'Play exercise again'
-                                      : 'Start exercise'
-                            }
-                        >
-                            <FontAwesomeIcon
-                                icon={state === 'count-in' || state === 'playing' ? faStop : faPlay}
-                            />
-                        </button>
-                        <span className="text-[10px] font-semibold text-indigo-300">
-                            {state === 'count-in' || state === 'playing' ? 'Stop' : 'Start'}
-                        </span>
-                    </div>
-                </div>
-            </footer>
-            {editorMeasure !== null ? (
-                <MeasureEditor
-                    measure={editorMeasure}
-                    signature={signature}
-                    steps={editorSteps}
-                    strokes={editorStrokes}
-                    isPreviewing={previewing === editorMeasure}
-                    onChange={setEditorStep}
-                    onPreview={() =>
-                        previewPattern(
-                            editorMeasure,
-                            stepsToNotes(editorSteps, editorMeasure, editorStrokes),
-                        )
+            <AppHeader
+                signature={signature}
+                measures={measures}
+                calibrationOpen={calibrationOpen}
+                settingsOpen={settingsOpen}
+                tempoOpen={tempoOpen}
+                displayedBpm={displayedBpm}
+                bpm={bpm}
+                tempoProgram={tempoProgram}
+                tempoStep={tempoStep}
+                tempoCeiling={tempoCeiling}
+                phase={state}
+                onCalibration={() => {
+                    stopForInteraction()
+                    stopPreview()
+                    setCalibrationOpen(true)
+                }}
+                onSettings={openExerciseSettings}
+                onToggleTempo={() => {
+                    stopForInteraction()
+                    toggleTempoOpen()
+                }}
+                onBpm={setBpm}
+                onTempoProgram={(nextProgram) => {
+                    setTempoProgram(nextProgram)
+                    if (nextProgram !== 'steady') {
+                        forceLooping()
                     }
-                    onStrokeChange={setEditorStroke}
-                    onSave={saveMeasureEditor}
-                    onClose={() => {
-                        stopPreview()
-                        setEditorMeasure(null)
-                    }}
-                />
-            ) : null}
-            {calibrationOpen ? (
-                <AudioCalibrationModal onClose={() => setCalibrationOpen(false)} />
-            ) : null}
-            {settingsOpen ? (
-                <ExerciseSettingsModal
-                    measures={measures}
-                    signature={signature}
-                    options={generationOptions}
-                    source={storedExercise.source}
-                    selectedPresetNumber={storedExercise.presetNumber}
-                    favorites={favoriteExercises}
-                    onClose={() => setSettingsOpen(false)}
-                    onPreset={choosePreset}
-                    onGenerate={generateFromSettings}
-                    onFavorite={chooseFavorite}
-                    onRemoveFavorite={removeFavoriteExercise}
-                />
-            ) : null}
-            {confirmation ? (
-                <div className="measure-editor-backdrop" role="presentation">
-                    <section
-                        className="confirmation-dialog"
-                        role="dialog"
-                        aria-modal="true"
-                        aria-labelledby="confirmation-title"
-                    >
-                        <h2 id="confirmation-title">{confirmation.title}</h2>
-                        <p>{confirmation.description}</p>
-                        <div>
-                            <button type="button" onClick={() => setConfirmation(null)}>
-                                Cancel
-                            </button>
-                            <button
-                                className="confirm-danger"
-                                type="button"
-                                onClick={() => {
-                                    confirmation.onConfirm()
-                                    setConfirmation(null)
-                                }}
-                            >
-                                {confirmation.confirmLabel}
-                            </button>
-                        </div>
-                    </section>
-                </div>
-            ) : null}
+                }}
+                onTempoStep={setTempoStep}
+                onTempoCeiling={setTempoCeiling}
+            />
+            <ExerciseWorkspace
+                signature={signature}
+                measures={measures}
+                notes={exercise}
+                sourceLabel={exerciseSourceLabel}
+                comment={storedExercise.comment}
+                isFavorite={storedExercise.source === 'favorite'}
+                favoriteId={storedExercise.favoriteId}
+                selectedMeasure={selectedMeasure}
+                activeMeasure={activeMeasure}
+                activeSlot={activeSlot}
+                phase={state}
+                previewing={previewing}
+                countInBeat={countInBeat}
+                countInBeats={countInBeats}
+                notationScroll={notationScroll}
+                onTempoClose={() => setTempoOpen(false)}
+                onSignature={requestSignatureChange}
+                onAddMeasure={addMeasure}
+                onClear={requestClearExercise}
+                onCommentInteraction={stopForInteraction}
+                onCommentSave={setExerciseComment}
+                onFavorite={() => {
+                    stopForInteraction()
+                    if (storedExercise.favoriteId) removeFavoriteExercise(storedExercise.favoriteId)
+                    else addCurrentExerciseToFavorites()
+                }}
+                onSelectMeasure={(index) => {
+                    stopForInteraction()
+                    selectMeasure(selectedMeasure === index ? null : index)
+                }}
+                onEdit={openMeasureEditor}
+                onDuplicate={duplicateSelectedMeasure}
+                onMove={moveSelectedMeasure}
+                onDelete={deleteSelectedMeasure}
+            />
+            <PlaybackControls
+                phase={state}
+                isLooping={isLooping}
+                isTempoLoop={isTempoLoop}
+                previewing={previewing}
+                onToggleLoop={toggleLooping}
+                onPreview={() => previewPattern()}
+                onReset={() => reset()}
+                onStart={() => state === 'count-in' || state === 'playing' ? reset(false) : startExercise()}
+            >
+                {selectedMeasure !== null ? (
+                    <TimingDetail
+                        measure={selectedMeasure}
+                        notes={exercise.filter((n) => n.measure === selectedMeasure)}
+                        runs={[
+                            ...loopRuns.map((run) => ({
+                                hits: timingHits(run.hits, selectedMeasure, run.measureMs),
+                                measureMs: run.measureMs,
+                                bpm: run.bpm,
+                            })).filter((run) => run.hits.length),
+                            ...(timingHits(hits, selectedMeasure).length ? [{
+                                hits: timingHits(hits, selectedMeasure), measureMs, bpm: displayedBpm,
+                            }] : []),
+                        ]}
+                        slots={spec.slots}
+                        beats={spec.beats}
+                        measureMs={measureMs}
+                        onPreview={() => previewPattern(selectedMeasure)}
+                        isPreviewing={previewing === selectedMeasure}
+                    />
+                ) : null}
+            </PlaybackControls>
+            <AppDialogs
+                ref={confirmationDialog}
+                editorMeasure={editorMeasure}
+                signature={signature}
+                exercise={exercise}
+                previewing={previewing}
+                onPreview={(measure, notes) => previewPattern(measure, notes)}
+                onSaveMeasure={saveMeasureEditor}
+                onCloseEditor={() => { stopPreview(); setEditorMeasure(null) }}
+                calibrationOpen={calibrationOpen}
+                onCloseCalibration={() => setCalibrationOpen(false)}
+                settingsOpen={settingsOpen}
+                measures={measures}
+                options={generationOptions}
+                source={storedExercise.source}
+                selectedPresetNumber={storedExercise.presetNumber}
+                favorites={favoriteExercises}
+                onCloseSettings={() => setSettingsOpen(false)}
+                onPreset={choosePreset}
+                onGenerate={generateFromSettings}
+                onFavorite={chooseFavorite}
+                onRemoveFavorite={removeFavoriteExercise}
+            />
         </main>
     )
 }
