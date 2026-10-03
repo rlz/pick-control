@@ -2,9 +2,12 @@
 
 ## Open tasks
 
-There are no open tasks from this localization work.
+There are no open tasks from this dependency update.
 
 ## Completed in this iteration
+
+- Updated six direct dependencies and their compatible transitive dependencies in `package-lock.json`; then moved `@types/node` to 26.6.4 at the user's request. Build and lint pass after both updates.
+- Replaced floating `latest` dependency declarations with explicit caret ranges matching the versions in `package-lock.json`.
 
 - Fixed disappearing preset score thumbnails by assigning explicit flex sizes to the container and both measures, giving `ResizeObserver` a nonzero width.
 - Fixed preset thumbnail alignment: the number has a compact width and notation fills the remaining space beside it.

@@ -1,5 +1,9 @@
 # Design and technical decisions
 
+## npm dependencies
+
+- Declare direct dependencies with explicit caret semver ranges based on the versions captured in `package-lock.json`; do not use the floating `latest` tag. Commit the lockfile so installs use its exact resolved versions.
+
 ## Tailwind CSS
 
 - Use Tailwind utility classes in components for ordinary layout, spacing, typography, colors, and interactive states. Prefer standard utilities and scales; small adjustments to spacing and size are acceptable.
