@@ -24,3 +24,5 @@ There are no open tasks from this localization work.
 - Set the document language from the detected locale and enabled right-to-left document direction for Arabic.
 - Confirmed every interface translation key resolves in all ten locale resources; the remaining strings identical to English are shared terms such as `BPM`.
 - Fixed browser locale matching so regional tags map to a supported language before selection; verified that `en-US, ru-RU, ru, en` selects English after a page reload.
+- Cleared all TypeScript and ESLint findings: removed unused session values, keyed the document language effect to the active locale, and kept the notation scroll ref out of the workspace's general props object to satisfy React Hooks ref analysis.
+- `npm run lint` and `npm run build` pass after the cleanup.

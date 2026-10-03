@@ -37,7 +37,7 @@ type Props = {
     onDelete: (index: number) => void
 }
 
-export function ExerciseWorkspace(props: Props) {
+export function ExerciseWorkspace({ notationScroll, ...props }: Props) {
     const { t } = useTranslation()
     const running = props.phase === 'playing' || props.previewing !== null
     const [signatureOpen, setSignatureOpen] = useState(false)
@@ -142,7 +142,7 @@ export function ExerciseWorkspace(props: Props) {
                 </div>
                 <div
                     className="min-h-0 overflow-x-hidden overflow-y-auto p-5 md:p-7"
-                    ref={props.notationScroll}
+                    ref={notationScroll}
                 >
                     <div
                         className="mb-3 ml-1 font-mono text-xs font-semibold uppercase tracking-wider text-slate-500"

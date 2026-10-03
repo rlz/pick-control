@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import i18n from './i18n'
+import './i18n'
 import { useSnapshot } from 'valtio'
 import {
     replaceHits,
@@ -47,12 +47,12 @@ import type { ExerciseNote, PlayerHit, TimeSignature } from './types'
 import { presetToExercise, type StickControlPreset } from './domain/stickControlPresets'
 
 function App() {
-    const { t } = useTranslation()
+    const { t, i18n: translator } = useTranslation()
+    const language = translator.resolvedLanguage ?? 'en'
     useEffect(() => {
-        const language = i18n.resolvedLanguage ?? 'en'
         document.documentElement.lang = language
         document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr'
-    }, [i18n.resolvedLanguage])
+    }, [language])
     const storedExercise = useSnapshot(exerciseStore)
     const storedFavorites = useSnapshot(favoritesStore)
     const session = useSnapshot(sessionStore)
@@ -96,7 +96,7 @@ function App() {
         ...run,
         hits: run.hits.map((hit) => ({ ...hit })),
     }))
-    const { phase: state, countInBeat, activeSlot, activeMeasure, previewing, activeBpm } = session
+    const { phase: state, countInBeat, activeSlot, activeMeasure, previewing } = session
     const { selectedMeasure, settingsOpen, tempoOpen, calibrationOpen } = ui
     const [editorMeasure, setEditorMeasure] = useState<number | null>(null)
     const confirmationDialog = useRef<AppDialogsHandle>(null)

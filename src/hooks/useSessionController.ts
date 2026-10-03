@@ -25,7 +25,7 @@ type Options = {
 export function useSessionController({ bpm, measures, signature, tempoCeiling, tempoStep, tempoProgram, exercise }: Options) {
     const storedSession = useSnapshot(sessionStore)
     const state = storedSession.phase
-    const { activeBpm, activeMeasure, previewing } = storedSession
+    const { activeBpm, previewing } = storedSession
     const [isLooping, setIsLooping] = useState(() => tempoProgram !== 'steady')
     const isTempoLoop = tempoProgram !== 'steady'
     const spec = signatures[signature]
