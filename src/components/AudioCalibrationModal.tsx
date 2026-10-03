@@ -1,5 +1,5 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faArrowsRotate, faMicrophone, faPlay, faXmark } from '@fortawesome/free-solid-svg-icons'
+import { faArrowsRotate, faPlay, faXmark } from '@fortawesome/free-solid-svg-icons'
 import { useEffect, useRef, useState } from 'react'
 import {
     Metronome,
@@ -441,10 +441,7 @@ export function AudioCalibrationModal({ onClose }: Props) {
             >
                 <header className="flex items-center justify-between gap-4 border-b border-slate-800 p-5">
                     <div>
-                        <span className="flex items-center gap-2 font-mono text-xs font-medium uppercase tracking-widest text-indigo-300">
-                            <FontAwesomeIcon icon={faMicrophone} /> Входной сигнал
-                        </span>
-                        <h2 id="calibration-title" className="mb-0 mt-1 text-lg font-semibold">
+                        <h2 id="calibration-title" className="mb-0 text-lg font-semibold">
                             Калибровка детектора
                         </h2>
                     </div>
@@ -494,13 +491,12 @@ export function AudioCalibrationModal({ onClose }: Props) {
                                 style={{ width: `${levelPercent}%` }}
                             />
                         </div>
-                        <p className="mb-0 mt-3 text-sm leading-relaxed text-slate-400">
-                            {status === 'connecting'
-                                ? 'Подключаемся к входу…'
-                                : status === 'error'
-                                  ? 'Нет доступа к микрофону. Разрешите его в браузере и попробуйте снова.'
-                                  : 'Шкала показывает громкость, а детектор реагирует на резкие атаки струн.'}
-                        </p>
+                        {status === 'error' ? (
+                            <p className="mb-0 mt-3 text-sm leading-relaxed text-slate-400">
+                                Нет доступа к микрофону. Разрешите его в браузере и попробуйте
+                                снова.
+                            </p>
+                        ) : null}
                     </div>
 
                     {calibrationState === 'idle' ? (
