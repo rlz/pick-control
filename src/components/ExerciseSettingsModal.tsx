@@ -202,12 +202,12 @@ export function ExerciseSettingsModal({
                                     onClick={() => onPreset(preset)}
                                     aria-label={'Choose preset ' + preset.number}
                                     aria-pressed={selectedPresetNumber === preset.number}
-                                    className={`grid min-h-32 grid-cols-12 items-center gap-2 rounded-lg border px-3 py-2 text-left text-slate-300 transition hover:border-indigo-400 hover:bg-slate-700 ${selectedPresetNumber === preset.number ? 'border-indigo-300 bg-indigo-950 ring-1 ring-indigo-400' : 'border-slate-700 bg-slate-800'}`}
+                                    className={`flex min-h-32 items-center gap-3 rounded-lg border px-3 py-2 text-left text-slate-300 transition hover:border-indigo-400 hover:bg-slate-700 ${selectedPresetNumber === preset.number ? 'border-indigo-300 bg-indigo-950 ring-1 ring-indigo-400' : 'border-slate-700 bg-slate-800'}`}
                                 >
-                                    <strong className="col-span-2 font-mono text-sm font-medium text-indigo-300">
+                                    <strong className="w-8 shrink-0 font-mono text-sm font-medium text-indigo-300">
                                         {preset.number}
                                     </strong>
-                                    <span className="col-span-10 min-w-0">
+                                    <span className="min-w-0 flex-1">
                                         <PresetNotation preset={preset} />
                                     </span>
                                 </button>

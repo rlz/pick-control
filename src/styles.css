@@ -144,6 +144,15 @@ body {
     border-top: 1px solid #334155;
     padding-top: 0.35rem;
 }
+.preset-notation {
+    display: flex;
+    width: 100%;
+    height: 120px;
+}
+.preset-notation-measure {
+    flex: 1 1 0;
+    min-width: 0;
+}
 .exercise-notation-preview > * {
     flex: 1 1 0;
     min-width: 0;
