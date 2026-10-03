@@ -151,23 +151,27 @@ export function ExerciseSettingsModal({
         setTab(nextTab)
     }
     return (
-        <div className="measure-editor-backdrop" role="presentation" onMouseDown={onClose}>
+        <div
+            className="fixed inset-0 z-40 grid place-items-center bg-slate-950/80 p-4 backdrop-blur-sm"
+            role="presentation"
+            onMouseDown={onClose}
+        >
             <section
-                className="exercise-settings-modal"
+                className="flex h-5/6 max-h-screen w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl"
                 role="dialog"
                 aria-modal="true"
                 aria-label="Exercise settings"
                 onMouseDown={(event) => event.stopPropagation()}
             >
-                <div className="settings-tab-bar">
-                    <div className="settings-tabs" role="tablist">
+                <div className="relative flex h-16 shrink-0 items-center justify-between border-b border-slate-800 px-5 pt-4">
+                    <div className="flex gap-1 self-end" role="tablist">
                         {tabs.map(({ id, label }) => (
                             <button
                                 key={id}
                                 type="button"
                                 role="tab"
                                 aria-selected={tab === id}
-                                className={tab === id ? 'active' : ''}
+                                className={`border-0 border-b-2 px-3 py-2 text-sm font-semibold ${tab === id ? 'border-indigo-300 text-indigo-100' : 'border-transparent text-slate-400'}`}
                                 onClick={() => selectTab(id)}
                             >
                                 {label}
@@ -175,7 +179,7 @@ export function ExerciseSettingsModal({
                         ))}
                     </div>
                     <button
-                        className="editor-close"
+                        className="absolute right-5 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:border-indigo-400"
                         type="button"
                         onClick={onClose}
                         aria-label="Close settings"
@@ -183,9 +187,9 @@ export function ExerciseSettingsModal({
                         <FontAwesomeIcon icon={faXmark} />
                     </button>
                 </div>
-                <div className="settings-tab-content">
+                <div className="min-h-0 flex-1 overflow-y-auto p-5">
                     {tab === 'presets' ? (
-                        <div className="preset-grid">
+                        <div className="grid grid-cols-2 gap-2 max-sm:grid-cols-1">
                             {stickControlPresets.map((preset) => (
                                 <button
                                     type="button"
@@ -198,22 +202,25 @@ export function ExerciseSettingsModal({
                                     onClick={() => onPreset(preset)}
                                     aria-label={'Choose preset ' + preset.number}
                                     aria-pressed={selectedPresetNumber === preset.number}
-                                    className={
-                                        selectedPresetNumber === preset.number ? 'selected' : ''
-                                    }
+                                    className={`grid min-h-32 grid-cols-12 items-center gap-2 rounded-lg border px-3 py-2 text-left text-slate-300 transition hover:border-indigo-400 hover:bg-slate-700 ${selectedPresetNumber === preset.number ? 'border-indigo-300 bg-indigo-950 ring-1 ring-indigo-400' : 'border-slate-700 bg-slate-800'}`}
                                 >
-                                    <strong>{preset.number}</strong>
-                                    <PresetNotation preset={preset} />
+                                    <strong className="col-span-2 font-mono text-sm font-medium text-indigo-300">
+                                        {preset.number}
+                                    </strong>
+                                    <span className="col-span-10 min-w-0">
+                                        <PresetNotation preset={preset} />
+                                    </span>
                                 </button>
                             ))}
                         </div>
                     ) : null}
                     {tab === 'generator' ? (
-                        <div className="generator-tab">
-                            <div className="settings-fields">
-                                <label>
+                        <div className="grid gap-5">
+                            <div className="grid grid-cols-2 gap-4">
+                                <label className="grid gap-2 font-mono text-xs font-medium uppercase tracking-wider text-slate-400">
                                     Time signature
                                     <select
+                                        className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 font-sans text-sm normal-case tracking-normal text-slate-200"
                                         value={generatorSignature}
                                         onChange={(event) =>
                                             setGeneratorSignature(
@@ -226,9 +233,10 @@ export function ExerciseSettingsModal({
                                         <option>6/8</option>
                                     </select>
                                 </label>
-                                <label>
+                                <label className="grid gap-2 font-mono text-xs font-medium uppercase tracking-wider text-slate-400">
                                     Measures
                                     <select
+                                        className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 font-sans text-sm normal-case tracking-normal text-slate-200"
                                         value={generatorMeasures}
                                         onChange={(event) =>
                                             setGeneratorMeasures(Number(event.target.value))
@@ -240,8 +248,10 @@ export function ExerciseSettingsModal({
                                     </select>
                                 </label>
                             </div>
-                            <fieldset className="generation-options">
-                                <legend>Allowed elements</legend>
+                            <fieldset className="grid gap-2 border-0 p-0">
+                                <legend className="mb-2 font-mono text-xs font-medium uppercase tracking-wider text-slate-400">
+                                    Allowed elements
+                                </legend>
                                 {(
                                     [
                                         ['rests', 'Rests'],
@@ -251,8 +261,12 @@ export function ExerciseSettingsModal({
                                         ['triplets', 'Triplets'],
                                     ] as [keyof GenerationOptions, string][]
                                 ).map(([option, label]) => (
-                                    <label className="generation-option" key={option}>
+                                    <label
+                                        className="flex items-center gap-2 text-sm font-medium text-slate-300"
+                                        key={option}
+                                    >
                                         <input
+                                            className="size-4 accent-indigo-400"
                                             type="checkbox"
                                             checked={generatorOptions[option]}
                                             onChange={(event) =>
@@ -269,23 +283,26 @@ export function ExerciseSettingsModal({
                         </div>
                     ) : null}
                     {tab === 'favorites' ? (
-                        <div className="favorites-list">
+                        <div className="grid gap-2 p-5">
                             {favorites.length ? (
                                 favorites.map((favorite) => (
-                                    <div className="favorite-exercise" key={favorite.id}>
+                                    <div
+                                        className="relative flex w-full items-stretch gap-2 overflow-hidden rounded-xl border border-slate-700 bg-slate-800 hover:border-indigo-400"
+                                        key={favorite.id}
+                                    >
                                         <button
-                                            className="favorite-exercise-open"
+                                            className="grid flex-1 gap-1 p-4 pr-14 text-left text-slate-200 hover:bg-slate-700"
                                             type="button"
                                             onClick={() => onFavorite(favorite)}
                                         >
                                             <strong>
                                                 {favorite.comment || 'Untitled exercise'}
                                             </strong>
-                                            <span>
+                                            <span className="text-xs text-slate-400">
                                                 {favorite.signature} · {favorite.measures} measures
                                                 · {favorite.source}
                                             </span>
-                                            <small>
+                                            <small className="text-xs text-slate-500">
                                                 Added{' '}
                                                 {new Date(favorite.addedAt).toLocaleDateString()} ·
                                                 Last used{' '}
@@ -294,7 +311,7 @@ export function ExerciseSettingsModal({
                                             <FavoriteNotationPreview favorite={favorite} />
                                         </button>
                                         <button
-                                            className="favorite-remove"
+                                            className="absolute right-3 top-3 rounded-md border border-slate-600 bg-slate-800 px-2 py-2 text-xs font-semibold text-rose-300 hover:border-indigo-400 hover:bg-slate-700"
                                             type="button"
                                             onClick={() => onRemoveFavorite(favorite.id)}
                                             aria-label="Remove favorite exercise"
@@ -305,15 +322,17 @@ export function ExerciseSettingsModal({
                                     </div>
                                 ))
                             ) : (
-                                <p className="favorites-empty">No favorite exercises yet.</p>
+                                <p className="m-0 text-center text-sm text-slate-400">
+                                    No favorite exercises yet.
+                                </p>
                             )}
                         </div>
                     ) : null}
                 </div>
                 {tab === 'generator' ? (
-                    <footer className="measure-editor-actions generator-actions">
+                    <footer className="mt-0 flex justify-end gap-3 border-t border-slate-800 p-4">
                         <button
-                            className="editor-save"
+                            className="rounded-lg border border-indigo-400 bg-indigo-300 px-4 py-3 text-sm font-semibold text-indigo-950"
                             type="button"
                             onClick={() =>
                                 onGenerate(generatorMeasures, generatorOptions, generatorSignature)

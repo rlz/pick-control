@@ -8,7 +8,6 @@ import {
     faArrowRight,
 } from '@fortawesome/free-solid-svg-icons'
 import { useEffect, useState } from 'react'
-import type { CSSProperties } from 'react'
 import type { ExerciseNote, TimeSignature } from '../types'
 
 type Props = {
@@ -83,7 +82,7 @@ export function Measure({
         <div
             role="button"
             tabIndex={0}
-            className={`measure ${selected ? 'selected' : ''} ${isActive ? 'active' : ''} relative min-h-48 flex-[0_0_var(--measure-width)] border-0 bg-transparent p-0 text-left text-inherit transition-colors`}
+            className={`relative min-h-48 flex-none border-0 p-0 text-left text-inherit outline-none transition-colors focus-visible:outline-none ${selected ? 'bg-indigo-400/5' : isActive ? 'bg-cyan-400/5' : 'bg-transparent'}`}
             onClick={onClick}
             onKeyDown={(event) => {
                 if (event.key === 'Enter' || event.key === ' ') {
@@ -93,7 +92,7 @@ export function Measure({
             }}
             aria-label={`Select measure ${index + 1}`}
             data-measure={index}
-            style={{ '--measure-width': `${displayWidth}px` } as CSSProperties}
+            style={{ width: displayWidth }}
         >
             <div className="engraved-score">
                 <EngravedMeasure
@@ -106,8 +105,12 @@ export function Measure({
                 />
             </div>
             {selected ? (
-                <div className="measure-actions" aria-label={`Measure ${index + 1} actions`}>
+                <div
+                    className="absolute right-1 top-1 z-10 flex gap-1 rounded-lg border border-slate-700 bg-slate-900/90 p-1 shadow-lg"
+                    aria-label={`Measure ${index + 1} actions`}
+                >
                     <button
+                        className="grid size-8 place-items-center rounded-md border border-transparent text-slate-300 transition hover:border-indigo-400 hover:bg-indigo-900/30 hover:text-indigo-100 disabled:cursor-not-allowed disabled:opacity-40"
                         type="button"
                         onClick={(event) => {
                             event.stopPropagation()
@@ -120,6 +123,7 @@ export function Measure({
                         <FontAwesomeIcon icon={faPenToSquare} />
                     </button>
                     <button
+                        className="grid size-8 place-items-center rounded-md border border-transparent text-slate-300 transition hover:border-indigo-400 hover:bg-indigo-900/30 hover:text-indigo-100 disabled:cursor-not-allowed disabled:opacity-40"
                         type="button"
                         onClick={(event) => {
                             event.stopPropagation()
@@ -132,6 +136,7 @@ export function Measure({
                         <FontAwesomeIcon icon={faClone} />
                     </button>
                     <button
+                        className="grid size-8 place-items-center rounded-md border border-transparent text-slate-300 transition hover:border-indigo-400 hover:bg-indigo-900/30 hover:text-indigo-100 disabled:cursor-not-allowed disabled:opacity-40"
                         type="button"
                         onClick={(event) => {
                             event.stopPropagation()
@@ -144,6 +149,7 @@ export function Measure({
                         <FontAwesomeIcon icon={faArrowLeft} />
                     </button>
                     <button
+                        className="grid size-8 place-items-center rounded-md border border-transparent text-slate-300 transition hover:border-indigo-400 hover:bg-indigo-900/30 hover:text-indigo-100 disabled:cursor-not-allowed disabled:opacity-40"
                         type="button"
                         onClick={(event) => {
                             event.stopPropagation()
@@ -157,7 +163,7 @@ export function Measure({
                     </button>
                     <button
                         type="button"
-                        className="danger"
+                        className="grid size-8 place-items-center rounded-md border border-transparent text-rose-300 transition hover:border-rose-400 hover:bg-rose-950/50 hover:text-rose-200 disabled:cursor-not-allowed disabled:opacity-40"
                         onClick={(event) => {
                             event.stopPropagation()
                             onDelete()

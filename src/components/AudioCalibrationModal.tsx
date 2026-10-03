@@ -427,23 +427,29 @@ export function AudioCalibrationModal({ onClose }: Props) {
     const recentlyDetected = visibleEvents.some((event) => timelineNow - event.time < 500)
 
     return (
-        <div className="calibration-backdrop" role="presentation" onMouseDown={onClose}>
+        <div
+            className="fixed inset-0 z-50 grid place-items-center bg-slate-950/80 p-4 backdrop-blur-sm"
+            role="presentation"
+            onMouseDown={onClose}
+        >
             <section
-                className="calibration-modal"
+                className="flex max-h-full w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl"
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="calibration-title"
                 onMouseDown={(event) => event.stopPropagation()}
             >
-                <header className="calibration-header">
+                <header className="flex items-center justify-between gap-4 border-b border-slate-800 p-5">
                     <div>
-                        <span className="calibration-eyebrow">
+                        <span className="flex items-center gap-2 font-mono text-xs font-medium uppercase tracking-widest text-indigo-300">
                             <FontAwesomeIcon icon={faMicrophone} /> Входной сигнал
                         </span>
-                        <h2 id="calibration-title">Калибровка детектора</h2>
+                        <h2 id="calibration-title" className="mb-0 mt-1 text-lg font-semibold">
+                            Калибровка детектора
+                        </h2>
                     </div>
                     <button
-                        className="editor-close"
+                        className="grid size-9 place-items-center rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:border-indigo-400"
                         type="button"
                         onClick={onClose}
                         aria-label="Закрыть"
@@ -452,10 +458,11 @@ export function AudioCalibrationModal({ onClose }: Props) {
                     </button>
                 </header>
 
-                <div className="calibration-content">
-                    <label className="calibration-device">
+                <div className="grid gap-4 overflow-y-auto p-5">
+                    <label className="grid gap-2 font-mono text-xs font-medium uppercase tracking-wider text-slate-400">
                         Аудиовход
                         <select
+                            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 font-sans text-sm normal-case tracking-normal text-slate-200"
                             value={deviceId}
                             onChange={(event) => setDeviceId(event.target.value)}
                             disabled={
@@ -471,15 +478,23 @@ export function AudioCalibrationModal({ onClose }: Props) {
                         </select>
                     </label>
 
-                    <div className="signal-panel">
-                        <div className="signal-panel-heading">
-                            <span>Уровень</span>
-                            <output>{levelDb.toFixed(0)} dBFS</output>
+                    <div className="rounded-xl border border-slate-700 bg-slate-950/50 p-4">
+                        <div className="flex items-center justify-between gap-3">
+                            <span className="text-sm font-semibold text-slate-300">Уровень</span>
+                            <output className="font-mono text-xs font-medium text-indigo-300">
+                                {levelDb.toFixed(0)} dBFS
+                            </output>
                         </div>
-                        <div className="level-meter" aria-label="Текущий уровень входного сигнала">
-                            <b style={{ width: `${levelPercent}%` }} />
+                        <div
+                            className="relative mt-4 h-3 overflow-hidden rounded-full bg-slate-800"
+                            aria-label="Текущий уровень входного сигнала"
+                        >
+                            <b
+                                className="absolute inset-y-0 left-0 rounded-full bg-indigo-400 transition-all"
+                                style={{ width: `${levelPercent}%` }}
+                            />
                         </div>
-                        <p>
+                        <p className="mb-0 mt-3 text-sm leading-relaxed text-slate-400">
                             {status === 'connecting'
                                 ? 'Подключаемся к входу…'
                                 : status === 'error'
@@ -489,14 +504,14 @@ export function AudioCalibrationModal({ onClose }: Props) {
                     </div>
 
                     {calibrationState === 'idle' ? (
-                        <div className="calibration-start">
-                            <p>
+                        <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-700 bg-slate-950/50 p-4">
+                            <p className="m-0 text-sm leading-relaxed text-slate-400">
                                 После четырёхдольного отсчёта сыграйте 16 ровных ударов под метроном
                                 90 BPM. Профиль сохранится только при 16 точных срабатываниях без
                                 лишних.
                             </p>
                             <button
-                                className="secondary calibration-action"
+                                className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm font-semibold text-slate-200 transition hover:border-indigo-400 hover:bg-slate-700"
                                 type="button"
                                 onClick={startCalibration}
                             >
@@ -507,30 +522,41 @@ export function AudioCalibrationModal({ onClose }: Props) {
                             </button>
                         </div>
                     ) : null}
-                    <div className="detection-log" aria-live="polite">
+                    <div
+                        className="rounded-xl border border-slate-700 bg-slate-950/50 p-4"
+                        aria-live="polite"
+                    >
                         {calibrationState === 'idle' || calibrationState === 'complete' ? (
                             <>
-                                <div className="detection-log-heading">
-                                    <span>Удары за последние 4 секунды</span>
+                                <div className="flex items-center justify-between gap-3">
+                                    <span className="text-sm font-semibold text-slate-300">
+                                        Удары за последние 4 секунды
+                                    </span>
                                     <span
                                         className={
                                             recentlyDetected
-                                                ? 'detector-status active'
-                                                : 'detector-status'
+                                                ? 'inline-flex items-center gap-2 text-xs text-emerald-300'
+                                                : 'inline-flex items-center gap-2 text-xs text-slate-500'
                                         }
                                     >
-                                        <i />{' '}
+                                        <i
+                                            className={`size-2 rounded-full ${recentlyDetected ? 'bg-emerald-300' : 'bg-slate-600'}`}
+                                        />{' '}
                                         {recentlyDetected ? 'Удар определён' : 'Ожидание удара'}
                                     </span>
                                 </div>
                                 <div
-                                    className="detection-timeline"
+                                    className="mt-4"
                                     role="img"
                                     aria-label="Временная шкала распознанных ударов; новые появляются справа и движутся влево"
                                 >
-                                    <div className="detection-timeline-axis" aria-hidden="true">
+                                    <div
+                                        className="relative h-4 font-mono text-xs text-slate-500"
+                                        aria-hidden="true"
+                                    >
                                         {[5, 4, 3, 2, 1].map((seconds) => (
                                             <span
+                                                className={`absolute whitespace-nowrap ${seconds === 5 ? '' : seconds === 1 ? '-translate-x-full' : '-translate-x-1/2'}`}
                                                 key={seconds}
                                                 style={{ left: `${((5 - seconds) / 4) * 100}%` }}
                                             >
@@ -538,13 +564,17 @@ export function AudioCalibrationModal({ onClose }: Props) {
                                             </span>
                                         ))}
                                     </div>
-                                    <div className="detection-timeline-track">
+                                    <div className="relative h-14 overflow-hidden rounded-md bg-gradient-to-b from-slate-800 to-slate-950">
                                         {[0, 25, 50, 75, 100].map((position) => (
-                                            <i key={position} style={{ left: `${position}%` }} />
+                                            <i
+                                                className="absolute inset-y-0 border-l border-slate-700"
+                                                key={position}
+                                                style={{ left: `${position}%` }}
+                                            />
                                         ))}
                                         {visibleEvents.map((event) => (
                                             <b
-                                                className="detection-timeline-hit"
+                                                className="absolute bottom-0 h-3/4 w-0.5 -translate-x-px rounded-t-full bg-cyan-400 shadow-lg"
                                                 key={event.id}
                                                 style={{
                                                     left: `${Math.min(
@@ -561,19 +591,27 @@ export function AudioCalibrationModal({ onClose }: Props) {
                                                     )}%`,
                                                 }}
                                                 title={`Удар: ${event.strength.toFixed(3)}`}
-                                            />
+                                            >
+                                                <i className="absolute -top-1 left-1/2 size-2 -translate-x-1/2 rounded-full bg-cyan-200" />
+                                            </b>
                                         ))}
                                     </div>
                                 </div>
                             </>
                         ) : null}
                         {calibrationState === 'count-in' ? (
-                            <div className="calibration-count-in" aria-live="assertive">
+                            <div
+                                className="mt-3 flex items-center justify-between gap-4 font-mono text-xs font-medium uppercase tracking-wide text-indigo-200"
+                                aria-live="assertive"
+                            >
                                 <span>Приготовьтесь</span>
-                                <div aria-label={`Отсчёт: ${countInBeat} из ${countInBeats}`}>
+                                <div
+                                    className="flex gap-2"
+                                    aria-label={`Отсчёт: ${countInBeat} из ${countInBeats}`}
+                                >
                                     {Array.from({ length: countInBeats }, (_, index) => (
                                         <b
-                                            className={index < countInBeat ? 'active' : undefined}
+                                            className={`grid size-8 place-items-center rounded-full border border-slate-600 ${index < countInBeat ? 'border-indigo-400 bg-indigo-400 text-slate-950' : 'text-slate-400'}`}
                                             key={index}
                                         >
                                             {index + 1}
@@ -582,18 +620,20 @@ export function AudioCalibrationModal({ onClose }: Props) {
                                 </div>
                             </div>
                         ) : calibrationState === 'running' ? (
-                            <p className="calibration-progress">
+                            <p className="mt-3 text-sm leading-relaxed text-indigo-200">
                                 Идёт запись: {calibrationBpms[seriesIndex]} BPM, сыграйте{' '}
                                 {calibrationBeatsPerTempo} ровных ударов.
                             </p>
                         ) : calibrationState === 'analysing' ? (
-                            <p className="calibration-progress">Анализируем запись…</p>
+                            <p className="mt-3 text-sm leading-relaxed text-indigo-200">
+                                Анализируем запись…
+                            </p>
                         ) : summary ? (
                             <div
                                 className={
                                     summary.saved
-                                        ? 'calibration-result saved'
-                                        : 'calibration-result'
+                                        ? 'grid gap-2 text-sm text-emerald-300'
+                                        : 'grid gap-2 text-sm text-rose-300'
                                 }
                             >
                                 <span>
@@ -605,7 +645,7 @@ export function AudioCalibrationModal({ onClose }: Props) {
                                 <span>Задержка: {summary.latencyMs} мс</span>
                                 <span>Лишних атак: {summary.falsePositives}</span>
                                 <button
-                                    className="secondary calibration-action"
+                                    className="mt-2 inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm font-semibold text-slate-200 transition hover:border-indigo-400 hover:bg-slate-700"
                                     type="button"
                                     onClick={startCalibration}
                                 >

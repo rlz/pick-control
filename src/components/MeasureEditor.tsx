@@ -47,153 +47,167 @@ export function MeasureEditor({
     const timelineSpan = 100
 
     const editor = (
-            <section
-                className={embedded ? 'measure-editor embedded' : 'measure-editor'}
-                role={embedded ? undefined : 'dialog'}
-                aria-modal={embedded ? undefined : true}
-                aria-label={embedded ? undefined : `Measure ${measure + 1} editor, ${signature}`}
-            >
-                {!embedded ? <header className="measure-editor-header">
-                    <h2>Measure {measure + 1}</h2>
+        <section
+            className={`w-full overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl ${embedded ? 'border-0 bg-transparent shadow-none' : ''}`}
+            role={embedded ? undefined : 'dialog'}
+            aria-modal={embedded ? undefined : true}
+            aria-label={embedded ? undefined : `Measure ${measure + 1} editor, ${signature}`}
+        >
+            {!embedded ? (
+                <header className="flex items-center justify-between p-4">
+                    <h2 className="m-0 font-sans text-sm font-semibold text-slate-200">
+                        Measure {measure + 1}
+                    </h2>
                     <button
-                        className="editor-close"
+                        className="grid size-9 place-items-center rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:border-indigo-400"
                         type="button"
                         onClick={onClose}
                         aria-label="Close editor"
                     >
                         <FontAwesomeIcon icon={faXmark} />
                     </button>
-                </header> : null}
-                <div className="editor-matrix">
-                    <section className="editor-result-row" aria-label="Live rhythm preview">
-                        <span aria-hidden="true" />
-                        <div
-                            className="editor-result-track"
-                            style={{
-                                gridTemplateColumns: `repeat(${steps.length}, var(--editor-cell-size))`,
-                            }}
-                        >
-                            <div className="timeline">
-                                <div className="axis">
-                                    {Array.from({ length: spec.beats + 1 }, (_, index) => (
-                                        <span
-                                            key={index}
-                                            style={{
-                                                left: `${timelineStart + (index / spec.beats) * timelineSpan}%`,
-                                            }}
-                                        >
-                                            {index + 1}
-                                        </span>
-                                    ))}
-                                </div>
-                                {Array.from({ length: spec.slots + 1 }, (_, index) => (
-                                    <i
+                </header>
+            ) : null}
+            <div
+                className={`grid gap-2 border-y border-slate-800 bg-slate-950/50 px-4 py-3 ${embedded ? 'border-0 bg-transparent py-4' : ''}`}
+            >
+                <section className="flex items-end gap-3" aria-label="Live rhythm preview">
+                    <span aria-hidden="true" />
+                    <div className="grid w-full flex-1 gap-1">
+                        <div className="timeline">
+                            <div className="axis">
+                                {Array.from({ length: spec.beats + 1 }, (_, index) => (
+                                    <span
                                         key={index}
-                                        className={`subdivision ${index % beatSlots === 0 ? 'beat' : index % (beatSlots / 2) === 0 ? 'eighth' : 'sixteenth'}`}
                                         style={{
-                                            left: `${timelineStart + (index / spec.slots) * timelineSpan}%`,
+                                            left: `${timelineStart + (index / spec.beats) * timelineSpan}%`,
+                                        }}
+                                    >
+                                        {index + 1}
+                                    </span>
+                                ))}
+                            </div>
+                            {Array.from({ length: spec.slots + 1 }, (_, index) => (
+                                <i
+                                    key={index}
+                                    className={`subdivision ${index % beatSlots === 0 ? 'beat' : index % (beatSlots / 2) === 0 ? 'eighth' : 'sixteenth'}`}
+                                    style={{
+                                        left: `${timelineStart + (index / spec.slots) * timelineSpan}%`,
+                                    }}
+                                />
+                            ))}
+                            {previewNotes
+                                .filter((note) => !note.isRest)
+                                .map((note) => (
+                                    <span
+                                        className={`rhythm-bar ${note.palmMuted ? 'palm-muted' : ''}`}
+                                        key={note.id}
+                                        style={{
+                                            left: `${timelineStart + (note.position / spec.slots) * timelineSpan}%`,
+                                            width: `${(note.duration / spec.slots) * timelineSpan}%`,
                                         }}
                                     />
                                 ))}
-                                {previewNotes
-                                    .filter((note) => !note.isRest)
-                                    .map((note) => (
-                                        <span
-                                            className={`rhythm-bar ${note.palmMuted ? 'palm-muted' : ''}`}
-                                            key={note.id}
-                                            style={{
-                                                left: `${timelineStart + (note.position / spec.slots) * timelineSpan}%`,
-                                                width: `${(note.duration / spec.slots) * timelineSpan}%`,
-                                            }}
-                                        />
-                                    ))}
-                            </div>
                         </div>
-                    </section>
-                    <div className="editor-state-row">
-                        <span className="editor-row-label">Stroke</span>
-                        <div
-                            className="editor-cells"
-                            style={{
-                                gridTemplateColumns: `repeat(${steps.length}, var(--editor-cell-size))`,
-                            }}
-                        >
-                            {steps.map((kind, step) => {
-                                const stroke = strokes[step]
-                                const playable = kind !== 'rest' && kind !== 'continue'
-                                const nextStroke =
-                                    stroke === undefined ? 'down' : stroke === 'down' ? 'up' : undefined
+                    </div>
+                </section>
+                <div className="flex items-center gap-3">
+                    <span className="w-20 shrink-0 text-xs font-medium text-slate-300">Stroke</span>
+                    <div className="flex min-w-0 flex-1 gap-1">
+                        {steps.map((kind, step) => {
+                            const stroke = strokes[step]
+                            const playable = kind !== 'rest' && kind !== 'continue'
+                            const nextStroke =
+                                stroke === undefined ? 'down' : stroke === 'down' ? 'up' : undefined
+                            return (
+                                <button
+                                    className={`grid aspect-square min-w-0 flex-1 place-items-center rounded-md border font-mono text-xs font-semibold transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-35 ${stroke === 'down' ? 'border-amber-400 bg-amber-950 text-amber-100' : stroke === 'up' ? 'border-cyan-400 bg-cyan-950 text-cyan-200' : 'border-dashed border-slate-600 bg-slate-900 text-transparent'}`}
+                                    disabled={!playable}
+                                    key={step}
+                                    type="button"
+                                    onClick={() => onStrokeChange(step, nextStroke)}
+                                    aria-label={`Cycle stroke at step ${step + 1}`}
+                                    title="Cycle stroke: down, up, not set"
+                                >
+                                    {stroke === 'down' ? (
+                                        <FontAwesomeIcon icon={faArrowDown} />
+                                    ) : stroke === 'up' ? (
+                                        <FontAwesomeIcon icon={faArrowUp} />
+                                    ) : null}
+                                </button>
+                            )
+                        })}
+                    </div>
+                </div>
+                {kinds.map((kind) => (
+                    <div className="flex items-center gap-3" key={kind}>
+                        <span className="w-20 shrink-0 text-xs font-medium text-slate-300">
+                            {labels[kind]}
+                        </span>
+                        <div className="flex min-w-0 flex-1 gap-1">
+                            {steps.map((selectedKind, step) => {
+                                const selected = selectedKind === kind
                                 return (
                                     <button
-                                        className={`rhythm-cell stroke ${stroke ?? 'unset'}`}
-                                        disabled={!playable}
+                                        className={`grid aspect-square min-w-0 flex-1 place-items-center rounded-md border border-slate-600 bg-slate-900 font-mono text-xs font-semibold text-transparent transition hover:-translate-y-px hover:border-indigo-300 ${step % beatSlots === 0 ? 'border-l-slate-500' : ''} ${selected && kind === 'note' ? 'border-indigo-500 bg-indigo-600/20 text-indigo-100' : ''} ${selected && kind === 'mute' ? 'border-slate-400 bg-slate-600/50 text-slate-100' : ''} ${selected && kind === 'triplet' ? 'border-cyan-400 bg-cyan-600/20 text-cyan-200' : ''} ${selected && kind === 'continue' ? 'border-dashed border-slate-500 bg-slate-800 text-slate-400' : ''} ${selected && kind === 'rest' ? 'border-slate-700 bg-slate-900 text-slate-500' : ''}`}
                                         key={step}
                                         type="button"
-                                        onClick={() => onStrokeChange(step, nextStroke)}
-                                        aria-label={`Cycle stroke at step ${step + 1}`}
-                                        title="Cycle stroke: down, up, not set"
+                                        onClick={() => onChange(step, kind)}
+                                        aria-label={`Set step ${step + 1} to ${labels[kind]}`}
+                                        aria-pressed={selected}
+                                        title={`Set step ${step + 1} to ${labels[kind]}`}
                                     >
-                                        {stroke === 'down' ? (
-                                            <FontAwesomeIcon icon={faArrowDown} />
-                                        ) : stroke === 'up' ? (
-                                            <FontAwesomeIcon icon={faArrowUp} />
-                                        ) : null}
+                                        {selected ? <span aria-hidden="true">●</span> : null}
                                     </button>
                                 )
                             })}
                         </div>
                     </div>
-                    {kinds.map((kind) => (
-                        <div className="editor-state-row" key={kind}>
-                            <span className="editor-row-label">{labels[kind]}</span>
-                            <div
-                                className="editor-cells"
-                                style={{
-                                    gridTemplateColumns: `repeat(${steps.length}, var(--editor-cell-size))`,
-                                }}
-                            >
-                                {steps.map((selectedKind, step) => {
-                                    const selected = selectedKind === kind
-                                    return (
-                                        <button
-                                            className={`rhythm-cell ${kind} ${selected ? 'selected' : ''} ${
-                                                step % beatSlots === 0 ? 'beat-start' : ''
-                                            }`}
-                                            key={step}
-                                            type="button"
-                                            onClick={() => onChange(step, kind)}
-                                            aria-label={`Set step ${step + 1} to ${labels[kind]}`}
-                                            aria-pressed={selected}
-                                            title={`Set step ${step + 1} to ${labels[kind]}`}
-                                        >
-                                            {selected ? <span aria-hidden="true">●</span> : null}
-                                        </button>
-                                    )
-                                })}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-                {!embedded ? <footer className="measure-editor-actions">
-                    <button className="editor-preview" type="button" onClick={onPreview}>
+                ))}
+            </div>
+            {!embedded ? (
+                <footer className="flex items-center justify-between gap-3 p-4">
+                    <button
+                        className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-3 text-sm font-semibold text-slate-200"
+                        type="button"
+                        onClick={onPreview}
+                    >
                         <FontAwesomeIcon icon={isPreviewing ? faStop : faPlay} />
                         {isPreviewing ? 'Stop' : 'Listen'}
                     </button>
-                    <div>
-                        {!embedded ? <button className="editor-cancel" type="button" onClick={onClose}>
-                            Cancel
-                        </button> : null}
-                        <button className="editor-save" type="button" onClick={onSave}>
+                    <div className="flex gap-2">
+                        {!embedded ? (
+                            <button
+                                className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-3 text-sm font-semibold text-slate-200"
+                                type="button"
+                                onClick={onClose}
+                            >
+                                Cancel
+                            </button>
+                        ) : null}
+                        <button
+                            className="rounded-lg border border-indigo-400 bg-indigo-300 px-3 py-3 text-sm font-semibold text-indigo-950"
+                            type="button"
+                            onClick={onSave}
+                        >
                             {embedded ? 'Apply to exercise' : 'Save measure'}
                         </button>
                     </div>
                 </footer>
-                : null}
-            </section>
+            ) : null}
+        </section>
     )
-    return embedded ? editor : (
-        <div className="measure-editor-backdrop" role="presentation" onMouseDown={onClose}>
-            <div className="measure-editor-shell" onMouseDown={(event) => event.stopPropagation()}>{editor}</div>
+    return embedded ? (
+        editor
+    ) : (
+        <div
+            className="fixed inset-0 z-40 grid place-items-center bg-slate-950/80 p-4 backdrop-blur-sm"
+            role="presentation"
+            onMouseDown={onClose}
+        >
+            <div className="w-full max-w-4xl" onMouseDown={(event) => event.stopPropagation()}>
+                {editor}
+            </div>
         </div>
     )
 }
