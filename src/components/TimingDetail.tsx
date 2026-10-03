@@ -1,6 +1,7 @@
 import { faPlay, faStop } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import type { ExerciseNote, PlayerHit } from '../types'
+import { useTranslation } from 'react-i18next'
 
 type Props = {
     measure: number
@@ -23,6 +24,7 @@ export function TimingDetail({
     onPreview,
     isPreviewing,
 }: Props) {
+    const { t } = useTranslation()
     const edgeAllowanceMs = 120
     const timelineWidthMs = measureMs + edgeAllowanceMs
     const timelineStart = (edgeAllowanceMs / timelineWidthMs) * 100
@@ -51,8 +53,8 @@ export function TimingDetail({
                 <button
                     className="grid size-10 place-items-center rounded-lg border border-slate-700 bg-slate-800 font-mono text-xs text-slate-200 transition hover:border-indigo-400 hover:text-indigo-200"
                     onClick={onPreview}
-                    aria-label={isPreviewing ? 'Stop measure preview' : 'Play measure'}
-                    title={isPreviewing ? 'Stop measure preview' : 'Play measure'}
+                    aria-label={isPreviewing ? t('stopMeasurePreview') : t('playMeasure')}
+                    title={isPreviewing ? t('stopMeasurePreview') : t('playMeasure')}
                 >
                     <FontAwesomeIcon icon={isPreviewing ? faStop : faPlay} />
                 </button>
@@ -88,7 +90,10 @@ export function TimingDetail({
                                     left: `${timelineStart + (note.position / slots) * timelineSpan}%`,
                                     width: `${(note.duration / slots) * timelineSpan}%`,
                                 }}
-                                title={`${note.palmMuted ? 'Palm mute · ' : ''}Target: ${((note.position / slots) * 4 + 1).toFixed(2)}`}
+                                title={t('targetBeat', {
+                                    mute: note.palmMuted ? `${t('palmMute')} · ` : '',
+                                    target: ((note.position / slots) * 4 + 1).toFixed(2),
+                                })}
                             />
                         ))}
                 </div>

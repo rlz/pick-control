@@ -4,6 +4,10 @@ pick-control is a browser-based rhythm trainer designed for guitar practice. It 
 
 The interface is styled with Tailwind CSS and the score is engraved with VexFlow.
 
+## Languages
+
+The interface uses English by default. It detects the browser's preferred language and supports English, Spanish, Simplified Chinese, Hindi, Arabic, Brazilian Portuguese, Bengali, Russian, Japanese, and French. Unsupported languages fall back to English.
+
 ## Run locally
 
 ```bash

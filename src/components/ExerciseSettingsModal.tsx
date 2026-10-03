@@ -10,6 +10,7 @@ import {
 } from '../domain/stickControlPresets'
 import type { TimeSignature } from '../types'
 import { EngravedMeasure } from './EngravedMeasure'
+import { useTranslation } from 'react-i18next'
 
 type Tab = 'presets' | 'generator' | 'favorites'
 
@@ -27,11 +28,7 @@ type Props = {
     onRemoveFavorite: (id: string) => void
 }
 
-const tabs: { id: Tab; label: string }[] = [
-    { id: 'presets', label: 'Presets' },
-    { id: 'generator', label: 'Generator' },
-    { id: 'favorites', label: 'Favorites' },
-]
+const tabs: Tab[] = ['presets', 'generator', 'favorites']
 
 function PresetNotation({ preset }: { preset: StickControlPreset }) {
     const notes = presetToExercise(preset)
@@ -68,7 +65,13 @@ function PresetNotation({ preset }: { preset: StickControlPreset }) {
     )
 }
 
-function FavoriteNotationPreview({ favorite }: { favorite: FavoriteExercise }) {
+function FavoriteNotationPreview({
+    favorite,
+    label,
+}: {
+    favorite: FavoriteExercise
+    label: string
+}) {
     const element = useRef<HTMLDivElement>(null)
     const [measureWidth, setMeasureWidth] = useState(180)
     const previewMeasures = Math.min(favorite.measures, 3)
@@ -86,11 +89,7 @@ function FavoriteNotationPreview({ favorite }: { favorite: FavoriteExercise }) {
     }, [previewMeasures])
 
     return (
-        <div
-            className="exercise-notation-preview"
-            ref={element}
-            aria-label="Exercise notation preview"
-        >
+        <div className="exercise-notation-preview" ref={element} aria-label={label}>
             {Array.from({ length: previewMeasures }, (_, measure) => (
                 <EngravedMeasure
                     key={measure}
@@ -120,6 +119,7 @@ export function ExerciseSettingsModal({
     onFavorite,
     onRemoveFavorite,
 }: Props) {
+    const { t, i18n } = useTranslation()
     const [tab, setTab] = useState<Tab>(() =>
         source === 'preset'
             ? 'presets'
@@ -160,12 +160,12 @@ export function ExerciseSettingsModal({
                 className="flex h-5/6 max-h-screen w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl"
                 role="dialog"
                 aria-modal="true"
-                aria-label="Exercise settings"
+                aria-label={t('settings')}
                 onMouseDown={(event) => event.stopPropagation()}
             >
                 <div className="relative flex h-16 shrink-0 items-center justify-between border-b border-slate-800 px-5 pt-4">
                     <div className="flex gap-1 self-end" role="tablist">
-                        {tabs.map(({ id, label }) => (
+                        {tabs.map((id) => (
                             <button
                                 key={id}
                                 type="button"
@@ -174,7 +174,7 @@ export function ExerciseSettingsModal({
                                 className={`border-0 border-b-2 px-3 py-2 text-sm font-semibold ${tab === id ? 'border-indigo-300 text-indigo-100' : 'border-transparent text-slate-400'}`}
                                 onClick={() => selectTab(id)}
                             >
-                                {label}
+                                {t(id)}
                             </button>
                         ))}
                     </div>
@@ -182,7 +182,7 @@ export function ExerciseSettingsModal({
                         className="absolute right-5 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:border-indigo-400"
                         type="button"
                         onClick={onClose}
-                        aria-label="Close settings"
+                        aria-label={t('closeSettings')}
                     >
                         <FontAwesomeIcon icon={faXmark} />
                     </button>
@@ -200,7 +200,7 @@ export function ExerciseSettingsModal({
                                         else presetElements.current.delete(preset.number)
                                     }}
                                     onClick={() => onPreset(preset)}
-                                    aria-label={'Choose preset ' + preset.number}
+                                    aria-label={t('choosePreset', { number: preset.number })}
                                     aria-pressed={selectedPresetNumber === preset.number}
                                     className={`flex min-h-32 items-center gap-3 rounded-lg border px-3 py-2 text-left text-slate-300 transition hover:border-indigo-400 hover:bg-slate-700 ${selectedPresetNumber === preset.number ? 'border-indigo-300 bg-indigo-950 ring-1 ring-indigo-400' : 'border-slate-700 bg-slate-800'}`}
                                 >
@@ -218,7 +218,7 @@ export function ExerciseSettingsModal({
                         <div className="grid gap-5">
                             <div className="grid grid-cols-2 gap-4">
                                 <label className="grid gap-2 font-mono text-xs font-medium uppercase tracking-wider text-slate-400">
-                                    Time signature
+                                    {t('timeSignature')}
                                     <select
                                         className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 font-sans text-sm normal-case tracking-normal text-slate-200"
                                         value={generatorSignature}
@@ -234,7 +234,7 @@ export function ExerciseSettingsModal({
                                     </select>
                                 </label>
                                 <label className="grid gap-2 font-mono text-xs font-medium uppercase tracking-wider text-slate-400">
-                                    Measures
+                                    {t('measuresLabel')}
                                     <select
                                         className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 font-sans text-sm normal-case tracking-normal text-slate-200"
                                         value={generatorMeasures}
@@ -250,15 +250,15 @@ export function ExerciseSettingsModal({
                             </div>
                             <fieldset className="grid gap-2 border-0 p-0">
                                 <legend className="mb-2 font-mono text-xs font-medium uppercase tracking-wider text-slate-400">
-                                    Allowed elements
+                                    {t('allowedElements')}
                                 </legend>
                                 {(
                                     [
-                                        ['rests', 'Rests'],
-                                        ['eighths', 'Eighth notes'],
-                                        ['sixteenths', 'Sixteenth notes'],
-                                        ['palmMutes', 'Palm mute'],
-                                        ['triplets', 'Triplets'],
+                                        ['rests', t('rests')],
+                                        ['eighths', t('eighthNotes')],
+                                        ['sixteenths', t('sixteenthNotes')],
+                                        ['palmMutes', t('palmMute')],
+                                        ['triplets', t('triplets')],
                                     ] as [keyof GenerationOptions, string][]
                                 ).map(([option, label]) => (
                                     <label
@@ -296,26 +296,37 @@ export function ExerciseSettingsModal({
                                             onClick={() => onFavorite(favorite)}
                                         >
                                             <strong>
-                                                {favorite.comment || 'Untitled exercise'}
+                                                {favorite.comment || t('untitledExercise')}
                                             </strong>
                                             <span className="text-xs text-slate-400">
-                                                {favorite.signature} · {favorite.measures} measures
-                                                · {favorite.source}
+                                                {favorite.signature} ·{' '}
+                                                {t('measureCount', { count: favorite.measures })}·{' '}
+                                                {t(`source.${favorite.source}`)}
                                             </span>
                                             <small className="text-xs text-slate-500">
-                                                Added{' '}
-                                                {new Date(favorite.addedAt).toLocaleDateString()} ·
-                                                Last used{' '}
-                                                {new Date(favorite.lastUsedAt).toLocaleDateString()}
+                                                {t('addedDate', {
+                                                    date: new Date(
+                                                        favorite.addedAt,
+                                                    ).toLocaleDateString(i18n.language),
+                                                })}{' '}
+                                                ·{' '}
+                                                {t('lastUsedDate', {
+                                                    date: new Date(
+                                                        favorite.lastUsedAt,
+                                                    ).toLocaleDateString(i18n.language),
+                                                })}
                                             </small>
-                                            <FavoriteNotationPreview favorite={favorite} />
+                                            <FavoriteNotationPreview
+                                                favorite={favorite}
+                                                label={t('notationPreview')}
+                                            />
                                         </button>
                                         <button
                                             className="absolute right-3 top-3 rounded-md border border-slate-600 bg-slate-800 px-2 py-2 text-xs font-semibold text-rose-300 hover:border-indigo-400 hover:bg-slate-700"
                                             type="button"
                                             onClick={() => onRemoveFavorite(favorite.id)}
-                                            aria-label="Remove favorite exercise"
-                                            title="Remove from favorites"
+                                            aria-label={t('removeFavoriteExercise')}
+                                            title={t('removeFavorite')}
                                         >
                                             <FontAwesomeIcon icon={faTrash} />
                                         </button>
@@ -323,7 +334,7 @@ export function ExerciseSettingsModal({
                                 ))
                             ) : (
                                 <p className="m-0 text-center text-sm text-slate-400">
-                                    No favorite exercises yet.
+                                    {t('noFavorites')}
                                 </p>
                             )}
                         </div>
@@ -338,7 +349,7 @@ export function ExerciseSettingsModal({
                                 onGenerate(generatorMeasures, generatorOptions, generatorSignature)
                             }
                         >
-                            Generate
+                            {t('generate')}
                         </button>
                     </footer>
                 ) : null}

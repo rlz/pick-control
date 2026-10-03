@@ -3,6 +3,7 @@ import { faArrowDown, faArrowUp, faPlay, faStop, faXmark } from '@fortawesome/fr
 import type { PickStroke, TimeSignature } from '../types'
 import { stepsToNotes, type StepKind } from '../domain/measureSteps'
 import { signatures } from '../domain/exercise'
+import { useTranslation } from 'react-i18next'
 
 type Props = {
     measure: number
@@ -18,12 +19,12 @@ type Props = {
     embedded?: boolean
 }
 
-const labels: Record<StepKind, string> = {
-    note: 'Note',
-    mute: 'Palm mute',
-    triplet: 'Triplet',
-    continue: 'Continue',
-    rest: 'Rest',
+const labelKeys: Record<StepKind, string> = {
+    note: 'note',
+    mute: 'palmMute',
+    triplet: 'triplet',
+    continue: 'continue',
+    rest: 'rest',
 }
 const kinds: StepKind[] = ['note', 'triplet', 'continue', 'rest', 'mute']
 
@@ -40,6 +41,7 @@ export function MeasureEditor({
     onClose,
     embedded = false,
 }: Props) {
+    const { t } = useTranslation()
     const beatSlots = signature === '6/8' ? 6 : 4
     const spec = signatures[signature]
     const previewNotes = stepsToNotes(steps, measure, strokes)
@@ -51,18 +53,20 @@ export function MeasureEditor({
             className={`w-full overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl ${embedded ? 'border-0 bg-transparent shadow-none' : ''}`}
             role={embedded ? undefined : 'dialog'}
             aria-modal={embedded ? undefined : true}
-            aria-label={embedded ? undefined : `Measure ${measure + 1} editor, ${signature}`}
+            aria-label={
+                embedded ? undefined : t('measureEditorTitle', { number: measure + 1, signature })
+            }
         >
             {!embedded ? (
                 <header className="flex items-center justify-between p-4">
                     <h2 className="m-0 font-sans text-sm font-semibold text-slate-200">
-                        Measure {measure + 1}
+                        {t('measureNumber', { number: measure + 1 })}
                     </h2>
                     <button
                         className="grid size-9 place-items-center rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:border-indigo-400"
                         type="button"
                         onClick={onClose}
-                        aria-label="Close editor"
+                        aria-label={t('closeEditor')}
                     >
                         <FontAwesomeIcon icon={faXmark} />
                     </button>
@@ -71,7 +75,7 @@ export function MeasureEditor({
             <div
                 className={`grid gap-2 border-y border-slate-800 bg-slate-950/50 px-4 py-3 ${embedded ? 'border-0 bg-transparent py-4' : ''}`}
             >
-                <section className="flex items-end gap-3" aria-label="Live rhythm preview">
+                <section className="flex items-end gap-3" aria-label={t('liveRhythmPreview')}>
                     <span aria-hidden="true" />
                     <div className="grid w-full flex-1 gap-1">
                         <div className="timeline">
@@ -112,7 +116,9 @@ export function MeasureEditor({
                     </div>
                 </section>
                 <div className="flex items-center gap-3">
-                    <span className="w-20 shrink-0 text-xs font-medium text-slate-300">Stroke</span>
+                    <span className="w-20 shrink-0 text-xs font-medium text-slate-300">
+                        {t('stroke')}
+                    </span>
                     <div className="flex min-w-0 flex-1 gap-1">
                         {steps.map((kind, step) => {
                             const stroke = strokes[step]
@@ -126,8 +132,8 @@ export function MeasureEditor({
                                     key={step}
                                     type="button"
                                     onClick={() => onStrokeChange(step, nextStroke)}
-                                    aria-label={`Cycle stroke at step ${step + 1}`}
-                                    title="Cycle stroke: down, up, not set"
+                                    aria-label={t('cycleStrokeAtStep', { step: step + 1 })}
+                                    title={t('cycleStroke')}
                                 >
                                     {stroke === 'down' ? (
                                         <FontAwesomeIcon icon={faArrowDown} />
@@ -142,7 +148,7 @@ export function MeasureEditor({
                 {kinds.map((kind) => (
                     <div className="flex items-center gap-3" key={kind}>
                         <span className="w-20 shrink-0 text-xs font-medium text-slate-300">
-                            {labels[kind]}
+                            {t(labelKeys[kind])}
                         </span>
                         <div className="flex min-w-0 flex-1 gap-1">
                             {steps.map((selectedKind, step) => {
@@ -153,9 +159,15 @@ export function MeasureEditor({
                                         key={step}
                                         type="button"
                                         onClick={() => onChange(step, kind)}
-                                        aria-label={`Set step ${step + 1} to ${labels[kind]}`}
+                                        aria-label={t('setStepTo', {
+                                            step: step + 1,
+                                            kind: t(labelKeys[kind]),
+                                        })}
                                         aria-pressed={selected}
-                                        title={`Set step ${step + 1} to ${labels[kind]}`}
+                                        title={t('setStepTo', {
+                                            step: step + 1,
+                                            kind: t(labelKeys[kind]),
+                                        })}
                                     >
                                         {selected ? <span aria-hidden="true">●</span> : null}
                                     </button>
@@ -173,7 +185,7 @@ export function MeasureEditor({
                         onClick={onPreview}
                     >
                         <FontAwesomeIcon icon={isPreviewing ? faStop : faPlay} />
-                        {isPreviewing ? 'Stop' : 'Listen'}
+                        {isPreviewing ? t('stop') : t('listen')}
                     </button>
                     <div className="flex gap-2">
                         {!embedded ? (
@@ -182,7 +194,7 @@ export function MeasureEditor({
                                 type="button"
                                 onClick={onClose}
                             >
-                                Cancel
+                                {t('cancel')}
                             </button>
                         ) : null}
                         <button
@@ -190,7 +202,7 @@ export function MeasureEditor({
                             type="button"
                             onClick={onSave}
                         >
-                            {embedded ? 'Apply to exercise' : 'Save measure'}
+                            {embedded ? t('applyToExercise') : t('saveMeasure')}
                         </button>
                     </div>
                 </footer>

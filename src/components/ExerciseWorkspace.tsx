@@ -5,6 +5,7 @@ import { Measure } from './Measure'
 import { ExerciseComment } from './ExerciseComment'
 import type { SessionPhase } from '../store/sessionStore'
 import type { ExerciseNote, TimeSignature } from '../types'
+import { useTranslation } from 'react-i18next'
 
 type Props = {
     signature: TimeSignature
@@ -37,6 +38,7 @@ type Props = {
 }
 
 export function ExerciseWorkspace(props: Props) {
+    const { t } = useTranslation()
     const running = props.phase === 'playing' || props.previewing !== null
     return (
         <div className="app-body grid min-h-0 overflow-hidden">
@@ -52,8 +54,8 @@ export function ExerciseWorkspace(props: Props) {
                             onChange={(event) =>
                                 props.onSignature(event.target.value as TimeSignature)
                             }
-                            aria-label="Change time signature"
-                            title="Change time signature"
+                            aria-label={t('changeTimeSignature')}
+                            title={t('changeTimeSignature')}
                         >
                             <option>4/4</option>
                             <option>3/4</option>
@@ -72,8 +74,8 @@ export function ExerciseWorkspace(props: Props) {
                         className="grid size-10 place-items-center rounded-md border border-slate-600 bg-slate-800 text-indigo-200 transition hover:border-indigo-400 hover:bg-slate-700"
                         type="button"
                         onClick={props.onAddMeasure}
-                        aria-label="Add empty measure"
-                        title="Add empty measure"
+                        aria-label={t('addEmptyMeasure')}
+                        title={t('addEmptyMeasure')}
                     >
                         <FontAwesomeIcon icon={faPlus} />
                     </button>
@@ -81,8 +83,8 @@ export function ExerciseWorkspace(props: Props) {
                         className="grid size-10 place-items-center rounded-md border border-red-900 bg-slate-800 text-rose-300 transition hover:border-rose-400 hover:bg-rose-950"
                         type="button"
                         onClick={props.onClear}
-                        aria-label="Clear exercise"
-                        title="Clear exercise"
+                        aria-label={t('clearExercise')}
+                        title={t('clearExercise')}
                     >
                         <FontAwesomeIcon icon={faTrash} />
                     </button>
@@ -93,7 +95,7 @@ export function ExerciseWorkspace(props: Props) {
                 >
                     <div
                         className="mb-3 ml-1 font-mono text-xs font-semibold uppercase tracking-wider text-slate-500"
-                        aria-label={`Exercise source: ${props.sourceLabel}`}
+                        aria-label={t('exerciseSource', { source: props.sourceLabel })}
                     >
                         <span className="text-indigo-300">{props.sourceLabel}</span>
                     </div>
@@ -107,10 +109,8 @@ export function ExerciseWorkspace(props: Props) {
                             type="button"
                             className={`whitespace-nowrap rounded-md border px-2 py-2 text-xs font-semibold transition hover:bg-slate-700 ${props.isFavorite ? 'border-amber-400 bg-amber-950 text-amber-300 hover:border-amber-300' : 'border-slate-600 bg-slate-800 text-indigo-200 hover:border-indigo-400'}`}
                             onClick={props.onFavorite}
-                            aria-label={
-                                props.favoriteId ? 'Remove from favorites' : 'Add to favorites'
-                            }
-                            title={props.favoriteId ? 'Remove from favorites' : 'Add to favorites'}
+                            aria-label={props.favoriteId ? t('removeFavorite') : t('addFavorite')}
+                            title={props.favoriteId ? t('removeFavorite') : t('addFavorite')}
                         >
                             <FontAwesomeIcon icon={faStar} />
                         </button>
@@ -147,7 +147,7 @@ export function ExerciseWorkspace(props: Props) {
                         role="status"
                     >
                         <span className="font-mono text-xs font-medium uppercase tracking-widest text-indigo-200">
-                            Get ready
+                            {t('getReady')}
                         </span>
                         <strong
                             className="min-w-8 text-center text-6xl font-bold leading-none text-indigo-300"

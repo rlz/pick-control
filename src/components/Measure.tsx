@@ -9,6 +9,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons'
 import { useEffect, useState } from 'react'
 import type { ExerciseNote, TimeSignature } from '../types'
+import { useTranslation } from 'react-i18next'
 
 type Props = {
     index: number
@@ -43,6 +44,7 @@ export function Measure({
     canDelete,
     canMoveRight,
 }: Props) {
+    const { t } = useTranslation()
     const [viewportWidth, setViewportWidth] = useState<number | null>(null)
 
     useEffect(() => {
@@ -90,7 +92,7 @@ export function Measure({
                     onClick()
                 }
             }}
-            aria-label={`Select measure ${index + 1}`}
+            aria-label={t('selectMeasure', { number: index + 1 })}
             data-measure={index}
             style={{ width: displayWidth }}
         >
@@ -107,7 +109,7 @@ export function Measure({
             {selected ? (
                 <div
                     className="absolute right-1 top-1 z-10 flex gap-1 rounded-lg border border-slate-700 bg-slate-900/90 p-1 shadow-lg"
-                    aria-label={`Measure ${index + 1} actions`}
+                    aria-label={t('measureActions', { number: index + 1 })}
                 >
                     <button
                         className="grid size-8 place-items-center rounded-md border border-transparent text-slate-300 transition hover:border-indigo-400 hover:bg-indigo-900/30 hover:text-indigo-100 disabled:cursor-not-allowed disabled:opacity-40"
@@ -117,8 +119,8 @@ export function Measure({
                             onEdit()
                         }}
                         disabled={isEditingDisabled}
-                        aria-label="Edit measure"
-                        title="Edit measure"
+                        aria-label={t('editMeasure')}
+                        title={t('editMeasure')}
                     >
                         <FontAwesomeIcon icon={faPenToSquare} />
                     </button>
@@ -130,8 +132,8 @@ export function Measure({
                             onDuplicate()
                         }}
                         disabled={isEditingDisabled}
-                        aria-label="Duplicate measure"
-                        title="Duplicate measure"
+                        aria-label={t('duplicateMeasure')}
+                        title={t('duplicateMeasure')}
                     >
                         <FontAwesomeIcon icon={faClone} />
                     </button>
@@ -143,8 +145,8 @@ export function Measure({
                             onMove(-1)
                         }}
                         disabled={isEditingDisabled || index === 0}
-                        aria-label="Move measure left"
-                        title="Move measure left"
+                        aria-label={t('moveMeasureLeft')}
+                        title={t('moveMeasureLeft')}
                     >
                         <FontAwesomeIcon icon={faArrowLeft} />
                     </button>
@@ -156,8 +158,8 @@ export function Measure({
                             onMove(1)
                         }}
                         disabled={isEditingDisabled || !canMoveRight}
-                        aria-label="Move measure right"
-                        title="Move measure right"
+                        aria-label={t('moveMeasureRight')}
+                        title={t('moveMeasureRight')}
                     >
                         <FontAwesomeIcon icon={faArrowRight} />
                     </button>
@@ -169,8 +171,8 @@ export function Measure({
                             onDelete()
                         }}
                         disabled={isEditingDisabled || !canDelete}
-                        aria-label="Delete measure"
-                        title="Delete measure"
+                        aria-label={t('deleteMeasure')}
+                        title={t('deleteMeasure')}
                     >
                         <FontAwesomeIcon icon={faTrash} />
                     </button>

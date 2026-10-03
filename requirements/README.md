@@ -1,8 +1,8 @@
-# Требования и решения
+# Requirements and decisions
 
-В этой директории хранятся устойчивые требования к проекту и принятые дизайнерские и технические решения. Новые договорённости фиксируются здесь, чтобы они не терялись между рабочими сессиями.
+This directory contains stable product requirements and accepted design and technical decisions. Record new agreements here so they remain available across work sessions.
 
-- [Требования к продукту](product.md)
-- [Дизайнерские и технические решения](decisions.md)
+- [Product requirements](product.md)
+- [Design and technical decisions](decisions.md)
 
-Незакрытые задачи и заметки по текущей работе ведутся отдельно в корневом [`todo.md`](../todo.md).
+Open tasks and current work notes are tracked separately in the root [`todo.md`](../todo.md).

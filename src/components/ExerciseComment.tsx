@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faPen } from '@fortawesome/free-solid-svg-icons'
+import { useTranslation } from 'react-i18next'
 
 type Props = { value: string; onSave: (value: string) => void; onInteraction: () => void }
 
 export function ExerciseComment({ value, onSave, onInteraction }: Props) {
+    const { t } = useTranslation()
     const [editing, setEditing] = useState(false)
     const [draft, setDraft] = useState('')
     const startEditing = () => {
@@ -21,7 +23,7 @@ export function ExerciseComment({ value, onSave, onInteraction }: Props) {
                         type="text"
                         value={draft}
                         onChange={(event) => setDraft(event.target.value)}
-                        placeholder="Add a note about this exercise"
+                        placeholder={t('commentPlaceholder')}
                         autoFocus
                     />
                     <button
@@ -33,7 +35,7 @@ export function ExerciseComment({ value, onSave, onInteraction }: Props) {
                             setEditing(false)
                         }}
                     >
-                        Save
+                        {t('save')}
                     </button>
                 </>
             ) : value ? (
@@ -43,8 +45,8 @@ export function ExerciseComment({ value, onSave, onInteraction }: Props) {
                         type="button"
                         className="whitespace-nowrap rounded-md border border-slate-600 bg-slate-800 px-2 py-2 text-xs font-semibold text-indigo-200 transition hover:border-indigo-400 hover:bg-slate-700"
                         onClick={startEditing}
-                        aria-label="Edit exercise comment"
-                        title="Edit comment"
+                        aria-label={t('editComment')}
+                        title={t('editComment')}
                     >
                         <FontAwesomeIcon icon={faPen} />
                     </button>
@@ -54,9 +56,9 @@ export function ExerciseComment({ value, onSave, onInteraction }: Props) {
                     type="button"
                     className="whitespace-nowrap rounded-md border border-slate-600 bg-slate-800 px-2 py-2 text-xs font-semibold text-indigo-200 transition hover:border-indigo-400 hover:bg-slate-700"
                     onClick={startEditing}
-                    aria-label="Add exercise comment"
+                    aria-label={t('addComment')}
                 >
-                    Add comment
+                    {t('addComment')}
                 </button>
             )}
         </>

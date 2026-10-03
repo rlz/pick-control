@@ -1,43 +1,48 @@
-# Дизайнерские и технические решения
+# Design and technical decisions
 
-## Использование Tailwind CSS
+## Tailwind CSS
 
-- Обычную раскладку, отступы, типографику, цвета и состояния интерактивных элементов задаём utility-классами Tailwind непосредственно в компонентах.
-- Для интерфейса используем стандартные utility-классы и шкалы Tailwind без произвольных значений; допустимо немного изменить отступы и размеры.
-- В `src/styles.css` остаются глобальные основы и специальные правила отображения нот, VexFlow и ритмической временной шкалы. Остальные элементы интерфейса стилизуем классами Tailwind.
-- Стили нотной графики и ритмических представлений сохраняем специализированными, чтобы не менять поведение VexFlow и визуальное представление ритма.
+- Use Tailwind utility classes in components for ordinary layout, spacing, typography, colors, and interactive states. Prefer standard utilities and scales; small adjustments to spacing and size are acceptable.
+- Keep global foundations and specialized notation, VexFlow, and rhythmic timeline rules in `src/styles.css`. Preserve specialized notation styles so VexFlow behavior and rhythmic display remain stable.
 
-## Нотация триолей
+## Triplet notation
 
-- Триоль — это группа 3:2. Ячейка начала группы имеет состояние `triplet`, а следующие за ней ячейки `continue` задают общую длительность группы. Три равные ноты занимают весь этот интервал; длительность триоли не считается фиксированной длиной в одну долю.
-- Экземпляр `Tuplet` необходимо сохранять в `EngravedMeasure.tsx`: его создание задаёт множитель тиков VexFlow и корректный ритмический интервал.
-- Видимые цифра `3` и скобка рисуются явно через `TextBracket` после балок. В компактной партитуре с ручной расстановкой балок нельзя полагаться только на `Tuplet.draw()` — цифра может не отобразиться.
-- Полная триоль состоит ровно из трёх соседних `ExerciseNote` с `isTriplet: true`. Изменения редактора или рендерера должны сохранять эту группировку и видимую отметку `3`.
+- A triplet is a 3:2 group. Its starting editor cell has the `triplet` state; following `continue` cells define the group's total duration. Three equal notes occupy that complete span, so a triplet is not assumed to have a fixed one-beat duration.
+- Keep the `Tuplet` instance in `EngravedMeasure.tsx`; creating it sets VexFlow's tick multiplier and preserves correct rhythmic spacing.
+- Draw the visible `3` and bracket explicitly with `TextBracket` after the beams. In this compact manually beamed score, `Tuplet.draw()` alone may omit the number.
+- A complete triplet is exactly three adjacent `ExerciseNote`s with `isTriplet: true`. Editor and renderer changes must preserve that grouping and its visible `3` marker.
 
-## Публикация
+## Publishing
 
-- Проект публикуется через GitHub Actions на GitHub Pages; пользовательский домен — `takt.maslennikovdm.ru`.
-- Для публикации нужно включить источник GitHub Actions в настройках Pages и настроить DNS CNAME `takt` на `<имя-пользователя>.github.io`; после первого успешного развёртывания следует включить Enforce HTTPS.
+- Publish through GitHub Actions to GitHub Pages. The custom domain is `takt.maslennikovdm.ru`.
+- Enable GitHub Actions as the Pages source and configure a DNS CNAME for `takt` to `<github-username>.github.io`. Enable Enforce HTTPS after the first successful deployment.
 
-## Редактор такта
+## Measure editor
 
-- Число ячеек редактора берётся из `signatures[signature].slots`, а не из числа долей. Поэтому сетка охватывает полный такт в 4/4, 3/4 и 6/8 и корректно задаёт длительность триолей.
-- Селектор размера такта оформляется стандартными классами Tailwind; системная стрелка скрыта, вместо неё показан шеврон с отступом `right-3` от правого края.
+- Derive the number of editor cells from `signatures[signature].slots`, not from the number of beats. The grid must cover a complete measure in 4/4, 3/4, and 6/8, including triplet durations.
+- Style the time-signature selector with standard Tailwind classes, hide the system arrow, and show a chevron inset by `right-3`.
 
-## План состояния приложения и декомпозиции интерфейса
+## Application state and component structure
 
-- Valtio используется для общего состояния сессии и приложения, которое читают несколько компонентов. Данные упражнения, темп, программа темпа и избранное остаются в существующих `exerciseStore` и `favoritesStore`; не создавать для них дублирующие источники истины.
-- Состояние воспроизведения и записи (`ready`, `count-in`, `playing`, `finished`), текущий счёт, активный BPM, позиция проигрывания, предпрослушивание, результаты попаданий и история циклических прогонов относится к `sessionStore`. Запись и история остаются доступными компонентам карты времени и управления воспроизведением.
-- Общие флаги интерфейса, нужные нескольким областям экрана (выбранный такт, открытое основное окно/панель), относятся к `uiStore`. Состояние, используемое только одним диалогом или редактором (черновик комментария, шаги и штрихи редактируемого такта, подтверждение конкретного действия), остаётся локальным состоянием соответствующего компонента.
-- `AudioContext`/`Metronome`, функции остановки, ID таймеров/кадров анимации, запросы разрешения микрофона, временные данные алгоритма разгона BPM и DOM-ссылки остаются в refs/контроллерах вне Valtio. Эти объекты нельзя помещать в сериализуемые UI-store.
-- Декомпозиция реализована: `AppHeader`, `ExerciseWorkspace`, `PlaybackControls` и `AppDialogs` отделены от `App.tsx`; аудиокоординация находится в `useSessionController`, внешние ресурсы и таймеры — в refs вне proxy. При дальнейших изменениях сохранять сценарии остановки при взаимодействии и корректное отображение триолей.
-- Компоненты читают только нужный им срез через `useSnapshot`; изменения состояния проходят через именованные действия store/контроллера. Не переносить локальные черновики и чисто визуальные раскрытия в глобальное состояние без потребителя за пределами владельца.
+- Use Valtio for shared session and application state read by multiple components. Exercise data, tempo, tempo program, and favorites stay in the existing `exerciseStore` and `favoritesStore`; do not create duplicate sources of truth.
+- Playback and recording state (`ready`, `count-in`, `playing`, `finished`), current score, active BPM, playback position, preview, hit results, and loop history belong to `sessionStore`.
+- Shared interface flags used by multiple screen areas (selected measure, open primary dialog or panel) belong to `uiStore`. State used by only one dialog or editor stays local to its owning component.
+- Keep `AudioContext`/`Metronome`, stop functions, timer and animation IDs, microphone permission requests, temporary tempo ramp data, and DOM references in refs/controllers outside Valtio.
+- `AppHeader`, `ExerciseWorkspace`, `PlaybackControls`, and `AppDialogs` are split from `App.tsx`; audio coordination is in `useSessionController`. Preserve stop-on-interaction behavior and correct triplet display.
+- Components read only the state slice they need through `useSnapshot`; state changes go through named store/controller actions. Do not move local drafts or purely visual disclosures into global state without a cross-component consumer.
 
-## Калибровка аудиовхода
+## Audio input calibration
 
-- В модальном окне калибровки не показывать декоративную подпись «Входной сигнал» с иконкой микрофона, поясняющий текст об уровне сигнала или отдельное сообщение о подключении. Ошибку доступа к микрофону показывать, пока она актуальна.
+- Do not show a decorative “Input signal” microphone label, explanatory signal-level text, or a separate connected message in the calibration modal. Show microphone access errors while they apply.
 
-## Миниатюры пресетов
+## Preset thumbnails
 
-- Контейнер миниатюры пресета должен иметь явную блочную ширину и делить её поровну между двумя тактами. Это необходимо для корректного измерения ширины VexFlow-графики через `ResizeObserver`.
-- В карточке номер пресета занимает компактную фиксированную ширину, а нотация заполняет оставшееся пространство непосредственно рядом с ним.
+- Give the preset thumbnail container an explicit block width and divide it evenly between its two measures so `ResizeObserver` can measure VexFlow graphics.
+- In preset cards, keep the preset number compact and fixed-width, with notation filling the remaining space beside it.
+
+## Interface language and localization
+
+- English is the default and fallback language. Use `i18next` with `react-i18next` for interface strings and `i18next-browser-languagedetector` to choose the initial locale from browser preferences.
+- Support English, Spanish, Simplified Chinese, Hindi, Arabic, Brazilian Portuguese, Bengali, Russian, Japanese, and French (`en`, `es`, `zh-CN`, `hi`, `ar`, `pt-BR`, `bn`, `ru`, `ja`, `fr`). Unsupported browser languages fall back to English.
+- Normalize regional browser tags to their supported locale before selection, preserving browser preference order (`en-US` → `en`, `pt-PT` → `pt-BR`). This ensures the first supported browser language wins over later exact regional matches.
+- Keep README and project requirements in English. Localize user-facing text, including accessible labels and dynamic feedback, through the same translation resources.

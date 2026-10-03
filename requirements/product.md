@@ -1,24 +1,25 @@
-# Требования к продукту
+# Product requirements
 
-## Назначение
+## Purpose
 
-Браузерный тренажёр ритма для занятий на гитаре. Приложение генерирует короткие упражнения, задаёт отсчёт и метроном, слушает исполнение через микрофон и сопоставляет обнаруженные атаки с записанным ритмом.
+A browser-based rhythm trainer for guitar practice. The application generates short exercises, provides a count-in and metronome, listens to the performance through the microphone, and compares detected attacks with the written rhythm.
 
-## Функциональные требования
+## Functional requirements
 
-- Генерировать случайные упражнения длиной от 2 до 8 тактов и с тремя уровнями сложности.
-- Поддерживать размеры 4/4, 3/4 и 6/8.
-- Позволять менять темп в диапазоне от 45 до 180 BPM.
-- Давать отсчёт из четырёх щелчков перед записью попытки.
-- Обнаруживать атаки звука через Web Audio и оценивать попадание с допуском ±150 мс.
-- Показывать карту времени по тактам с целевыми и обнаруженными атаками.
-- Отображать нотацию упражнения в виде SVG-партитуры.
-- При редактировании такта показывать всю сетку его ритмических ячеек согласно текущему размеру: 16 в 4/4, 12 в 3/4 и 6/8.
-- Поддерживать установку как PWA и офлайн-кэширование после первого посещения.
+- Generate random exercises from 2 to 8 measures with three difficulty levels.
+- Support 4/4, 3/4, and 6/8 time signatures.
+- Allow tempo changes from 45 to 180 BPM.
+- Provide a four-click count-in before recording an attempt.
+- Detect sound attacks through Web Audio and score them within a tolerance of ±150 ms.
+- Show a per-measure timing map with target and detected attacks.
+- Display exercise notation as an SVG score.
+- When editing a measure, show all rhythmic cells for its time signature, as defined by the signature's slot count.
+- Support PWA installation and offline caching after the first visit.
+- Use English by default and translate the complete interface into ten supported languages. Detect the preferred language from the browser and fall back to English.
 
-## Требования к использованию
+## Usage requirements
 
-- Детектор микрофона оценивает транзиенты атаки, а не высоту звука.
-- Для более чистой оценки пользователь должен слышать метроном в наушниках и заниматься в относительно тихом помещении.
-- Любое значимое действие интерфейса во время отсчёта или выполнения упражнения сначала останавливает текущий запуск, затем выполняет действие. Это относится, в частности, к выбору такта, открытию и смене упражнения, настройкам темпа и метронома, предпрослушиванию и калибровке.
-- Действия управления упражнением должны оставаться доступными во время запуска: нажатие не должно молча игнорироваться из-за активного воспроизведения.
+- The microphone detector evaluates attack transients, not pitch.
+- For cleaner scoring, users should hear the metronome through headphones and practice in a relatively quiet room.
+- Any significant interface action during count-in or exercise playback first stops the current run, then performs the action. This includes selecting a measure, opening or changing an exercise, tempo and metronome settings, previewing, and calibration.
+- Exercise controls remain available during a run; a click must not be silently ignored because playback is active.

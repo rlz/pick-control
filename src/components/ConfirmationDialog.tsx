@@ -1,4 +1,5 @@
 import { forwardRef, useImperativeHandle, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 export type ConfirmationRequest = {
     title: string
@@ -12,6 +13,7 @@ export type ConfirmationDialogHandle = { request: (confirmation: ConfirmationReq
 export const ConfirmationDialog = forwardRef<ConfirmationDialogHandle>(
     function ConfirmationDialog(_props, ref) {
         const [confirmation, setConfirmation] = useState<ConfirmationRequest | null>(null)
+        const { t } = useTranslation()
         useImperativeHandle(ref, () => ({ request: setConfirmation }), [])
         if (!confirmation) return null
         return (
@@ -37,7 +39,7 @@ export const ConfirmationDialog = forwardRef<ConfirmationDialogHandle>(
                             type="button"
                             onClick={() => setConfirmation(null)}
                         >
-                            Cancel
+                            {t('cancel')}
                         </button>
                         <button
                             className="cursor-pointer rounded-md border border-rose-400 bg-rose-700 px-3 py-2 text-white"

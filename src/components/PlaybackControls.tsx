@@ -8,6 +8,7 @@ import {
     faVolumeHigh,
 } from '@fortawesome/free-solid-svg-icons'
 import type { SessionPhase } from '../store/sessionStore'
+import { useTranslation } from 'react-i18next'
 
 type Props = {
     phase: SessionPhase
@@ -22,6 +23,7 @@ type Props = {
 }
 
 export function PlaybackControls(props: Props) {
+    const { t } = useTranslation()
     const running = props.phase === 'count-in' || props.phase === 'playing'
     return (
         <footer className="relative z-10 flex items-center justify-between gap-4 border-t border-slate-800 bg-slate-900 px-4 md:px-7">
@@ -35,50 +37,50 @@ export function PlaybackControls(props: Props) {
                         disabled={props.isTempoLoop}
                         aria-label={
                             props.isTempoLoop
-                                ? 'Loop is required by the tempo program'
+                                ? t('loopRequired')
                                 : props.isLooping
-                                  ? 'Disable exercise loop'
-                                  : 'Enable exercise loop'
+                                  ? t('disableLoop')
+                                  : t('enableLoop')
                         }
                         aria-pressed={props.isLooping}
                         title={
                             props.isTempoLoop
-                                ? 'Loop is required by the tempo program'
+                                ? t('loopRequired')
                                 : props.isLooping
-                                  ? 'Disable exercise loop'
-                                  : 'Loop exercise'
+                                  ? t('disableLoop')
+                                  : t('loopExercise')
                         }
                     >
                         <FontAwesomeIcon icon={faRepeat} />
                     </button>
-                    <span className="text-xs font-medium text-slate-400">Loop</span>
+                    <span className="text-xs font-medium text-slate-400">{t('loop')}</span>
                 </div>
                 <div className="flex flex-col items-center gap-1">
                     <button
                         className="grid size-10 place-items-center rounded-lg border border-slate-700 bg-slate-800 text-slate-200 transition hover:border-indigo-400"
                         onClick={props.onPreview}
                         aria-label={
-                            props.previewing === 'all' ? 'Stop full preview' : 'Preview exercise'
+                            props.previewing === 'all' ? t('stopFullPreview') : t('previewExercise')
                         }
-                        title={props.previewing === 'all' ? 'Stop preview' : 'Preview exercise'}
+                        title={props.previewing === 'all' ? t('stopPreview') : t('previewExercise')}
                     >
                         <FontAwesomeIcon
                             icon={props.previewing === 'all' ? faStop : faVolumeHigh}
                         />
                     </button>
-                    <span className="text-xs font-medium text-slate-400">Listen</span>
+                    <span className="text-xs font-medium text-slate-400">{t('listen')}</span>
                 </div>
                 <div className="flex flex-col items-center gap-1">
                     <button
                         className="grid size-10 place-items-center rounded-lg border border-slate-700 bg-slate-800 text-slate-200 transition hover:border-indigo-400 disabled:cursor-not-allowed disabled:opacity-40"
                         onClick={props.onReset}
                         disabled={props.phase === 'ready'}
-                        aria-label="Repeat exercise"
-                        title="Repeat exercise"
+                        aria-label={t('repeatExercise')}
+                        title={t('repeatExercise')}
                     >
                         <FontAwesomeIcon icon={faRotateRight} />
                     </button>
-                    <span className="text-xs font-medium text-slate-400">Restart</span>
+                    <span className="text-xs font-medium text-slate-400">{t('restart')}</span>
                 </div>
                 <div className="flex flex-col items-center gap-1">
                     <button
@@ -86,23 +88,23 @@ export function PlaybackControls(props: Props) {
                         onClick={props.onStart}
                         aria-label={
                             running
-                                ? 'Stop exercise'
+                                ? t('stopExercise')
                                 : props.phase === 'finished'
-                                  ? 'Play exercise again'
-                                  : 'Start exercise'
+                                  ? t('playAgain')
+                                  : t('startExercise')
                         }
                         title={
                             running
-                                ? 'Stop exercise'
+                                ? t('stopExercise')
                                 : props.phase === 'finished'
-                                  ? 'Play exercise again'
-                                  : 'Start exercise'
+                                  ? t('playAgain')
+                                  : t('startExercise')
                         }
                     >
                         <FontAwesomeIcon icon={running ? faStop : faPlay} />
                     </button>
                     <span className="text-xs font-semibold text-indigo-300">
-                        {running ? 'Stop' : 'Start'}
+                        {running ? t('stop') : t('start')}
                     </span>
                 </div>
             </div>
