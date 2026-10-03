@@ -29,3 +29,13 @@ There are no open tasks from this dependency update.
 - Fixed browser locale matching so regional tags map to a supported language before selection; verified that `en-US, ru-RU, ru, en` selects English after a page reload.
 - Cleared all TypeScript and ESLint findings: removed unused session values, keyed the document language effect to the active locale, and kept the notation scroll ref out of the workspace's general props object to satisfy React Hooks ref analysis.
 - `npm run lint` and `npm run build` pass after the cleanup.
+- Updated the metronome tempo program labels to say tempo changes happen after a complete exercise; recorded the behavior requirement.
+- Replaced the tempo program dropdown with a one-click button group showing the selected mode.
+- Made the tempo program buttons compact and icon-only, with localized tooltips and accessible names.
+- Separated hover styling from selected styling on the tempo program buttons and removed the enclosing label behavior.
+- Changed the tempo step caption to sentence case and added a localized, mode-specific explanation for each tempo program.
+- Initially constrained the playback footer and added internal history scrolling; revised in this iteration per user preference so the footer grows to fit all history rows.
+- Kept a timing-history row for every completed repetition, even when no hits were detected.
+- Changed tempo progression so every step is exactly the configured size; a non-aligned maximum acts as a ceiling and the ramp uses the highest reachable tempo below it.
+- Constrained the playback footer and timing history flex items so the full history can scroll inside its available height instead of being clipped.
+- Removed history scrolling and made the footer grow with its history, preserving a minimum height for the playback controls.

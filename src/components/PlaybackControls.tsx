@@ -26,7 +26,7 @@ export function PlaybackControls(props: Props) {
     const { t } = useTranslation()
     const running = props.phase === 'count-in' || props.phase === 'playing'
     return (
-        <footer className="relative z-10 flex items-center justify-between gap-4 border-t border-slate-800 bg-slate-900 px-4 md:px-7">
+        <footer className="relative z-10 flex items-center justify-between gap-4 border-t border-slate-800 bg-slate-900 px-4 py-2 md:px-7">
             <div className="flex min-w-0 flex-1 items-center gap-3">{props.children}</div>
             <div className="flex items-end gap-3 border-l border-slate-700 pl-4">
                 <div className="flex flex-col items-center gap-1">

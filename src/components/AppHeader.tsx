@@ -1,5 +1,11 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faGear, faMicrophone } from '@fortawesome/free-solid-svg-icons'
+import {
+    faArrowTrendUp,
+    faArrowsRotate,
+    faEquals,
+    faGear,
+    faMicrophone,
+} from '@fortawesome/free-solid-svg-icons'
 import {
     MAX_BPM,
     MIN_BPM,
@@ -99,26 +105,44 @@ export function AppHeader(props: Props) {
                                     disabled={running}
                                 />
                             </label>
-                            <label className="grid gap-2 font-mono text-xs font-medium uppercase tracking-wider text-slate-400">
-                                {t('tempoProgram')}
-                                <select
-                                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 font-sans text-sm normal-case tracking-normal text-slate-200"
-                                    value={props.tempoProgram}
-                                    onChange={(event) =>
-                                        props.onTempoProgram(event.target.value as TempoProgram)
-                                    }
-                                    disabled={running}
-                                >
-                                    <option value="steady">{t('keepTempo')}</option>
-                                    <option value="increase">{t('increaseEachLoop')}</option>
-                                    <option value="increase-and-return">
-                                        {t('increaseThenReturn')}
-                                    </option>
-                                </select>
-                            </label>
+                            <div className="grid gap-2 font-mono text-xs font-medium uppercase tracking-wider text-slate-400">
+                                <span>{t('tempoProgram')}</span>
+                                <div className="flex gap-1" role="group" aria-label={t('tempoProgram')}>
+                                    {([
+                                        ['steady', 'keepTempo', faEquals],
+                                        ['increase', 'increaseEachLoop', faArrowTrendUp],
+                                        ['increase-and-return', 'increaseThenReturn', faArrowsRotate],
+                                    ] as const).map(([program, label, icon]) => {
+                                        const selected = props.tempoProgram === program
+                                        return (
+                                            <button
+                                                key={program}
+                                                className={`size-10 rounded-lg border font-sans text-sm normal-case tracking-normal transition ${selected ? 'border-indigo-400 bg-indigo-500/20 text-indigo-200 ring-1 ring-indigo-400/50' : 'border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-500 hover:bg-slate-700'}`}
+                                                type="button"
+                                                aria-pressed={selected}
+                                                aria-label={t(label)}
+                                                title={t(label)}
+                                                onClick={() => props.onTempoProgram(program as TempoProgram)}
+                                                disabled={running}
+                                            >
+                                                <FontAwesomeIcon icon={icon} aria-hidden="true" />
+                                            </button>
+                                        )
+                                    })}
+                                </div>
+                                <p className="m-0 font-sans text-xs font-normal normal-case tracking-normal text-slate-400">
+                                    {t(
+                                        props.tempoProgram === 'steady'
+                                            ? 'steadyTempoHelp'
+                                            : props.tempoProgram === 'increase'
+                                              ? 'increasingTempoHelp'
+                                              : 'returningTempoHelp',
+                                    )}
+                                </p>
+                            </div>
                             {props.tempoProgram !== 'steady' ? (
                                 <>
-                                    <label className="grid gap-2 font-mono text-xs font-medium uppercase tracking-wider text-slate-400">
+                                    <label className="grid gap-2 font-mono text-xs font-medium normal-case tracking-normal text-slate-400">
                                         {t('changePerPass')}{' '}
                                         <output className="font-sans text-lg font-bold normal-case tracking-normal text-indigo-300">
                                             {props.tempoStep} BPM

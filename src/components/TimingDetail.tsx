@@ -45,7 +45,7 @@ export function TimingDetail({
     const showRunBpm = new Set(runs.map((run) => run.bpm)).size > 1
 
     return (
-        <section className="flex h-full w-full min-w-0 items-center gap-3">
+        <section className="flex w-full min-w-0 items-center gap-3">
             <div className="flex items-center gap-2">
                 <p className="m-0 font-mono text-xs font-medium text-indigo-300">
                     {String(measure + 1).padStart(2, '0')}

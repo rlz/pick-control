@@ -40,6 +40,15 @@
 
 - Do not show a decorative “Input signal” microphone label, explanatory signal-level text, or a separate connected message in the calibration modal. Show microphone access errors while they apply.
 
+## Tempo program controls
+
+- Present the three tempo programs as a compact, icon-only one-click button group in the tempo panel, with the current choice visibly distinct from hover and each icon explained by a localized accessible label and tooltip.
+- Keep one BPM for the full configured exercise. Apply progression steps only between complete exercise repetitions, and describe the controls in those terms.
+- Treat the maximum as an inclusive ceiling, not a target that permits a shortened final step. Increase by exactly the configured step while the next value remains at or below the ceiling; the increase mode holds the last reachable tempo, and increase-and-return descends from there in full steps.
+- Use sentence case for tempo progression details and show a localized explanation that changes with the selected program.
+- Let the playback footer grow to fit all timing-history rows; keep a minimum height for its controls and let the exercise workspace use the remaining viewport height.
+- Show a timing-history row for every completed exercise repetition, including repetitions with no detected hits.
+
 ## Preset thumbnails
 
 - Give the preset thumbnail container an explicit block width and divide it evenly between its two measures so `ResizeObserver` can measure VexFlow graphics.

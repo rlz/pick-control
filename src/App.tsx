@@ -252,11 +252,7 @@ function App() {
     }
     return (
         <main
-            className={`grid h-dvh overflow-hidden bg-slate-950 text-slate-100 ${
-                loopRuns.length
-                    ? 'grid-rows-[3.5rem_minmax(0,1fr)_auto] md:grid-rows-[4rem_minmax(0,1fr)_auto]'
-                    : 'grid-rows-[3.5rem_minmax(0,1fr)_5.5rem] md:grid-rows-[4rem_minmax(0,1fr)_6rem]'
-            }`}
+            className="grid h-dvh grid-rows-[3.5rem_minmax(0,1fr)_minmax(5.5rem,auto)] overflow-hidden bg-slate-950 text-slate-100 md:grid-rows-[4rem_minmax(0,1fr)_minmax(6rem,auto)]"
         >
             <AppHeader
                 signature={signature}
@@ -348,8 +344,7 @@ function App() {
                                     hits: timingHits(run.hits, selectedMeasure, run.measureMs),
                                     measureMs: run.measureMs,
                                     bpm: run.bpm,
-                                }))
-                                .filter((run) => run.hits.length),
+                                })),
                             ...(timingHits(hits, selectedMeasure).length
                                 ? [
                                       {

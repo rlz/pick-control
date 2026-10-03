@@ -366,18 +366,21 @@ export function useSessionController({ bpm, measures, signature, tempoCeiling, t
         const run = tempoRun.current
         if (!run) return null
         if (run.program === 'increase-and-return') {
-            if (!run.returning && run.bpm >= run.ceiling) run.returning = true
+            if (!run.returning && run.bpm + run.step > run.ceiling) run.returning = true
             if (run.returning) {
                 if (run.bpm <= run.baseBpm) {
                     return null
                 } else {
-                    run.bpm = Math.max(run.baseBpm, run.bpm - run.step)
+                    run.bpm -= run.step
                 }
             } else {
-                run.bpm = Math.min(run.ceiling, run.bpm + run.step)
+                run.bpm += run.step
             }
         } else if (run.program === 'increase') {
-            run.bpm = Math.min(run.ceiling, run.bpm + run.step)
+            // The ceiling is an upper bound. If the next full step would cross
+            // it, keep looping at the current attainable tempo instead.
+            if (run.bpm + run.step > run.ceiling) return run.bpm
+            run.bpm += run.step
         }
         return run.bpm
     }

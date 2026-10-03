@@ -9,6 +9,9 @@ A browser-based rhythm trainer for guitar practice. The application generates sh
 - Generate random exercises from 2 to 8 measures with three difficulty levels.
 - Support 4/4, 3/4, and 6/8 time signatures.
 - Allow tempo changes from 45 to 180 BPM.
+- In tempo progression modes, hold the selected BPM for every measure in the exercise and change it only between complete exercise repetitions.
+- Treat the configured maximum as an upper bound: tempo progression uses only full configured step increments and never exceeds the maximum. If the next full step would exceed it, hold the last attainable tempo; in increase-and-return mode, reverse from that tempo using full steps.
+- Let users select a tempo program directly with one click.
 - Provide a four-click count-in before recording an attempt.
 - Detect sound attacks through Web Audio and score them within a tolerance of ±150 ms.
 - Show a per-measure timing map with target and detected attacks.
