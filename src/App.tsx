@@ -142,6 +142,10 @@ function App() {
     const exerciseBeats = spec.beats * measures
     const isTempoLoop = tempoProgram !== 'steady'
 
+    function stopForInteraction() {
+        if (state === 'count-in' || state === 'playing') reset(false)
+    }
+
     // A screen wake lock is released whenever the document becomes hidden.
     // Keep it requested for the complete run (including the count-in), and
     // request it again when the player returns to the app.
@@ -264,7 +268,7 @@ function App() {
         nextOptions: GenerationOptions,
         nextSignature: TimeSignature,
     ) {
-        if (state === 'count-in' || state === 'playing') return
+        stopForInteraction()
         reset()
         generateExerciseWithSettings(nextMeasures, nextOptions, nextSignature)
         setSelectedMeasure(null)
@@ -316,7 +320,8 @@ function App() {
         })
     }
     function openMeasureEditor() {
-        if (selectedMeasure === null || state === 'count-in' || state === 'playing') return
+        if (selectedMeasure === null) return
+        stopForInteraction()
         stopPreview()
         const measureNotes = exercise.filter((note) => note.measure === selectedMeasure)
         setEditorSteps(notesToSteps(measureNotes, spec.slots))
@@ -324,7 +329,7 @@ function App() {
         setEditorMeasure(selectedMeasure)
     }
     function openExerciseSettings() {
-        if (state === 'count-in' || state === 'playing') return
+        stopForInteraction()
         stopPreview()
         setSettingsOpen(true)
     }
@@ -350,7 +355,7 @@ function App() {
         setEditorMeasure(null)
     }
     function changeNotation(action: () => void) {
-        if (state === 'count-in' || state === 'playing') return
+        stopForInteraction()
         reset()
         action()
     }
@@ -379,7 +384,7 @@ function App() {
         })
     }
     function requestClearExercise() {
-        if (state === 'count-in' || state === 'playing') return
+        stopForInteraction()
         setConfirmation({
             title: 'Clear exercise?',
             description: 'All notes will be removed and the exercise will contain one empty measure.',
@@ -391,7 +396,8 @@ function App() {
         })
     }
     function requestSignatureChange(nextSignature: TimeSignature) {
-        if (nextSignature === signature || state === 'count-in' || state === 'playing') return
+        if (nextSignature === signature) return
+        stopForInteraction()
         setConfirmation({
             title: 'Change time signature?',
             description: `This will remove all notes and reset the exercise to one empty ${nextSignature} measure.`,
@@ -403,14 +409,14 @@ function App() {
         })
     }
     function choosePreset(preset: StickControlPreset) {
-        if (state === 'count-in' || state === 'playing') return
+        stopForInteraction()
         reset()
         setPresetExercise(presetToExercise(preset), preset.number)
         setSelectedMeasure(null)
         setSettingsOpen(false)
     }
     function chooseFavorite(favorite: FavoriteExercise) {
-        if (state === 'count-in' || state === 'playing') return
+        stopForInteraction()
         reset()
         loadFavoriteExercise(favorite)
         setSelectedMeasure(null)
@@ -466,7 +472,7 @@ function App() {
         progressFrame.current = requestAnimationFrame(update)
     }
     async function previewPattern(measure?: number, notes = exercise) {
-        if (state === 'count-in' || state === 'playing') return
+        stopForInteraction()
         setTempoOpen(false)
         const target = measure ?? 'all'
         if (previewing === target) {
@@ -671,6 +677,7 @@ function App() {
     }
     function toggleLooping() {
         if (isTempoLoop) return
+        stopForInteraction()
         setIsLooping((previous) => {
             const next = !previous
             isLoopingRef.current = next
@@ -709,7 +716,11 @@ function App() {
                     <button
                         className="header-control"
                         type="button"
-                        onClick={() => setCalibrationOpen(true)}
+                        onClick={() => {
+                            stopForInteraction()
+                            stopPreview()
+                            setCalibrationOpen(true)
+                        }}
                         aria-label="Открыть калибровку аудиовхода"
                         aria-expanded={calibrationOpen}
                     >
@@ -730,7 +741,10 @@ function App() {
                         <button
                             className="header-control"
                             type="button"
-                            onClick={() => setTempoOpen((open) => !open)}
+                            onClick={() => {
+                                stopForInteraction()
+                                setTempoOpen((open) => !open)
+                            }}
                             aria-expanded={tempoOpen}
                             aria-label="Change tempo"
                         >
@@ -847,7 +861,6 @@ function App() {
                             onChange={(event) =>
                                 requestSignatureChange(event.target.value as TimeSignature)
                             }
-                            disabled={state === 'count-in' || state === 'playing'}
                             aria-label="Change time signature"
                             title="Change time signature"
                         >
@@ -859,7 +872,6 @@ function App() {
                             className="workspace-action"
                             type="button"
                             onClick={addMeasure}
-                            disabled={state === 'count-in' || state === 'playing'}
                             aria-label="Add empty measure"
                             title="Add empty measure"
                         >
@@ -869,7 +881,6 @@ function App() {
                             className="workspace-action danger"
                             type="button"
                             onClick={requestClearExercise}
-                            disabled={state === 'count-in' || state === 'playing'}
                             aria-label="Clear exercise"
                             title="Clear exercise"
                         >
@@ -896,7 +907,10 @@ function App() {
                                     <button
                                         type="button"
                                         className="comment-save"
-                                        onClick={saveComment}
+                                        onClick={() => {
+                                            stopForInteraction()
+                                            saveComment()
+                                        }}
                                     >
                                         Save
                                     </button>
@@ -908,7 +922,10 @@ function App() {
                                         <button
                                             type="button"
                                             className="comment-edit"
-                                            onClick={startEditingComment}
+                                            onClick={() => {
+                                                stopForInteraction()
+                                                startEditingComment()
+                                            }}
                                             aria-label="Edit exercise comment"
                                             title="Edit comment"
                                         >
@@ -919,7 +936,10 @@ function App() {
                                     <button
                                         type="button"
                                         className="comment-edit"
-                                        onClick={startEditingComment}
+                                        onClick={() => {
+                                            stopForInteraction()
+                                            startEditingComment()
+                                        }}
                                         aria-label="Add exercise comment"
                                     >
                                         Add comment
@@ -932,6 +952,7 @@ function App() {
                                     storedExercise.source === 'favorite' ? 'is-favorite' : ''
                                 }`}
                                 onClick={() => {
+                                    stopForInteraction()
                                     if (storedExercise.favoriteId) {
                                         removeFavoriteExercise(storedExercise.favoriteId)
                                     } else {
@@ -970,14 +991,17 @@ function App() {
                                             ? activeSlot
                                             : -1
                                     }
-                                    onClick={() =>
-                                        setSelectedMeasure(selectedMeasure === index ? null : index)
-                                    }
+                                    onClick={() => {
+                                        stopForInteraction()
+                                        setSelectedMeasure(
+                                            selectedMeasure === index ? null : index,
+                                        )
+                                    }}
                                     onEdit={openMeasureEditor}
                                     onDuplicate={() => duplicateSelectedMeasure(index)}
                                     onMove={(direction) => moveSelectedMeasure(index, direction)}
                                     onDelete={() => deleteSelectedMeasure(index)}
-                                    isEditingDisabled={state === 'count-in' || state === 'playing'}
+                                    isEditingDisabled={false}
                                     canDelete={measures > 1}
                                     canMoveRight={index < measures - 1}
                                 />
@@ -1070,7 +1094,6 @@ function App() {
                         <button
                             className="icon-button"
                             onClick={() => previewPattern()}
-                            disabled={state === 'count-in' || state === 'playing'}
                             aria-label={
                                 previewing === 'all' ? 'Stop full preview' : 'Preview exercise'
                             }
