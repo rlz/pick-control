@@ -4,6 +4,7 @@
 
 - Use Tailwind utility classes in components for ordinary layout, spacing, typography, colors, and interactive states. Prefer standard utilities and scales; small adjustments to spacing and size are acceptable.
 - Keep global foundations and specialized notation, VexFlow, and rhythmic timeline rules in `src/styles.css`. Preserve specialized notation styles so VexFlow behavior and rhythmic display remain stable.
+- Use Font Awesome for ordinary interface icons when a matching icon exists; avoid hand-drawn inline SVGs for those icons.
 
 ## Triplet notation
 
@@ -20,7 +21,7 @@
 ## Measure editor
 
 - Derive the number of editor cells from `signatures[signature].slots`, not from the number of beats. The grid must cover a complete measure in 4/4, 3/4, and 6/8, including triplet durations.
-- Style the time-signature selector with standard Tailwind classes, hide the system arrow, and show a chevron inset by `right-3`.
+- Render the time-signature selector as a simple inline layout: the native select label followed by a separate chevron sibling. Keep the chevron out of the label area; do not position it over the select text.
 
 ## Application state and component structure
 

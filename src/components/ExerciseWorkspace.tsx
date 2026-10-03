@@ -1,6 +1,6 @@
 import type { RefObject } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faPlus, faStar, faTrash } from '@fortawesome/free-solid-svg-icons'
+import { faChevronDown, faPlus, faStar, faTrash } from '@fortawesome/free-solid-svg-icons'
 import { Measure } from './Measure'
 import { ExerciseComment } from './ExerciseComment'
 import type { SessionPhase } from '../store/sessionStore'
@@ -47,9 +47,9 @@ export function ExerciseWorkspace(props: Props) {
                 onClick={props.onTempoClose}
             >
                 <div className="absolute right-5 top-5 z-20 flex items-center gap-1 md:right-7 md:top-7">
-                    <div className="relative">
+                    <div className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-600 bg-slate-800 px-3 text-indigo-200 hover:border-indigo-400">
                         <select
-                            className="h-10 appearance-none rounded-md border border-slate-600 bg-slate-800 px-3 py-0 font-mono text-xs font-semibold text-indigo-200 hover:border-indigo-400"
+                            className="appearance-none bg-transparent p-0 font-mono text-xs font-semibold text-indigo-200 outline-none"
                             value={props.signature}
                             onChange={(event) =>
                                 props.onSignature(event.target.value as TimeSignature)
@@ -61,14 +61,11 @@ export function ExerciseWorkspace(props: Props) {
                             <option>3/4</option>
                             <option>6/8</option>
                         </select>
-                        <svg
-                            className="pointer-events-none absolute right-3 top-1/2 h-1.5 w-2.5 -translate-y-1/2 text-indigo-200"
-                            viewBox="0 0 10 6"
-                            fill="none"
+                        <FontAwesomeIcon
+                            icon={faChevronDown}
+                            className="pointer-events-none size-2.5 shrink-0"
                             aria-hidden="true"
-                        >
-                            <path d="m1 1 4 4 4-4" stroke="currentColor" strokeWidth="1.5" />
-                        </svg>
+                        />
                     </div>
                     <button
                         className="grid size-10 place-items-center rounded-md border border-slate-600 bg-slate-800 text-indigo-200 transition hover:border-indigo-400 hover:bg-slate-700"
