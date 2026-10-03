@@ -1,5 +1,11 @@
 # pick-control implementation notes
 
+## Ведение требований и задач
+
+- Поддерживай `requirements/` в актуальном состоянии: фиксируй там новые требования к проекту и принятые дизайнерские или технические решения по мере их появления в ходе работы.
+- Веди корневой `todo.md`: добавляй выявленные нерешённые задачи и заметки по текущей работе, обновляй или закрывай записи при изменении статуса.
+- Перед завершением работы над задачей проверь, отражены ли новые требования, решения и оставшиеся задачи в этих документах. Не добавляй предположительные задачи, которые не были выявлены.
+
 ## Triplet notation
 
 - A triplet is a 3:2 tuplet. In the editor, its starting cell has the `triplet` state and the immediately following `continue` cells set the group's total duration. Three equal note glyphs then occupy that complete span; never assume a triplet has a fixed one-beat duration.
