@@ -1,4 +1,4 @@
-import type { RefObject } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent, type RefObject } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faChevronDown, faPlus, faStar, faTrash } from '@fortawesome/free-solid-svg-icons'
 import { Measure } from './Measure'
@@ -40,6 +40,34 @@ type Props = {
 export function ExerciseWorkspace(props: Props) {
     const { t } = useTranslation()
     const running = props.phase === 'playing' || props.previewing !== null
+    const [signatureOpen, setSignatureOpen] = useState(false)
+    const signatureSelector = useRef<HTMLDivElement>(null)
+
+    useEffect(() => {
+        if (!signatureOpen) return
+        const closeOnOutsideClick = (event: PointerEvent) => {
+            if (!signatureSelector.current?.contains(event.target as Node)) {
+                setSignatureOpen(false)
+            }
+        }
+        document.addEventListener('pointerdown', closeOnOutsideClick)
+        return () => document.removeEventListener('pointerdown', closeOnOutsideClick)
+    }, [signatureOpen])
+
+    function moveSignatureFocus(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+        const options = signatureSelector.current?.querySelectorAll<HTMLButtonElement>(
+            '[role="option"]',
+        )
+        if (!options?.length) return
+        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+            event.preventDefault()
+            options[(index + (event.key === 'ArrowDown' ? 1 : options.length - 1)) % options.length].focus()
+        } else if (event.key === 'Escape') {
+            setSignatureOpen(false)
+            signatureSelector.current?.querySelector('button')?.focus()
+        }
+    }
+
     return (
         <div className="app-body grid min-h-0 overflow-hidden">
             <section
@@ -47,25 +75,51 @@ export function ExerciseWorkspace(props: Props) {
                 onClick={props.onTempoClose}
             >
                 <div className="absolute right-5 top-5 z-20 flex items-center gap-1 md:right-7 md:top-7">
-                    <div className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-600 bg-slate-800 px-3 text-indigo-200 hover:border-indigo-400">
-                        <select
-                            className="appearance-none bg-transparent p-0 font-mono text-xs font-semibold text-indigo-200 outline-none"
-                            value={props.signature}
-                            onChange={(event) =>
-                                props.onSignature(event.target.value as TimeSignature)
-                            }
+                    <div className="relative" ref={signatureSelector}>
+                        <button
+                            className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-600 bg-slate-800 px-3 font-mono text-xs font-semibold text-indigo-200 hover:border-indigo-400"
+                            type="button"
+                            onClick={() => setSignatureOpen((open) => !open)}
+                            onKeyDown={(event) => {
+                                if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                                    event.preventDefault()
+                                    setSignatureOpen(true)
+                                    requestAnimationFrame(() =>
+                                        signatureSelector.current
+                                            ?.querySelector<HTMLButtonElement>(`[data-signature="${props.signature}"]`)
+                                            ?.focus(),
+                                    )
+                                }
+                            }}
                             aria-label={t('changeTimeSignature')}
+                            aria-haspopup="listbox"
+                            aria-expanded={signatureOpen}
                             title={t('changeTimeSignature')}
                         >
-                            <option>4/4</option>
-                            <option>3/4</option>
-                            <option>6/8</option>
-                        </select>
-                        <FontAwesomeIcon
-                            icon={faChevronDown}
-                            className="pointer-events-none size-2.5 shrink-0"
-                            aria-hidden="true"
-                        />
+                            <span>{props.signature}</span>
+                            <FontAwesomeIcon icon={faChevronDown} className="size-2.5 shrink-0" aria-hidden="true" />
+                        </button>
+                        {signatureOpen ? (
+                            <div className="absolute right-0 top-full z-30 mt-1 min-w-full overflow-hidden rounded-md border border-slate-600 bg-slate-800 p-1 shadow-xl" role="listbox" aria-label={t('changeTimeSignature')}>
+                                {(['4/4', '3/4', '6/8'] as const).map((signature, index) => (
+                                    <button
+                                        key={signature}
+                                        className={`block w-full rounded px-2 py-2 text-left font-mono text-xs font-semibold ${signature === props.signature ? 'bg-indigo-600/30 text-indigo-100' : 'text-slate-200 hover:bg-slate-700'}`}
+                                        type="button"
+                                        role="option"
+                                        aria-selected={signature === props.signature}
+                                        data-signature={signature}
+                                        onClick={() => {
+                                            setSignatureOpen(false)
+                                            props.onSignature(signature as TimeSignature)
+                                        }}
+                                        onKeyDown={(event) => moveSignatureFocus(event, index)}
+                                    >
+                                        {signature}
+                                    </button>
+                                ))}
+                            </div>
+                        ) : null}
                     </div>
                     <button
                         className="grid size-10 place-items-center rounded-md border border-slate-600 bg-slate-800 text-indigo-200 transition hover:border-indigo-400 hover:bg-slate-700"

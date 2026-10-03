@@ -21,7 +21,7 @@
 ## Measure editor
 
 - Derive the number of editor cells from `signatures[signature].slots`, not from the number of beats. The grid must cover a complete measure in 4/4, 3/4, and 6/8, including triplet durations.
-- Render the time-signature selector as a simple inline layout: the native select label followed by a separate chevron sibling. Keep the chevron out of the label area; do not position it over the select text.
+- Use a custom time-signature selector with a full-width button trigger and a separate Font Awesome chevron. Its popup options must be easy to select across the full row and support keyboard navigation.
 
 ## Application state and component structure
 

@@ -9,7 +9,7 @@ There are no open tasks from this localization work.
 - Fixed disappearing preset score thumbnails by assigning explicit flex sizes to the container and both measures, giving `ResizeObserver` a nonzero width.
 - Fixed preset thumbnail alignment: the number has a compact width and notation fills the remaining space beside it.
 - Moved the main interface styling to standard Tailwind utility classes; `src/styles.css` retains global foundations and specialized notation and rhythmic graphics.
-- Simplified the time-signature selector to a native label followed by a separate Font Awesome chevron, avoiding overlap with the selected value.
+- Replaced the time-signature selector's native select with a custom full-button selector and a separate Font Awesome chevron; options are selectable across each full row.
 - Added `sessionStore` and `uiStore`; audio resources and timers remain outside the proxy.
 - Split `App.tsx` into screen components and `AppDialogs`; moved audio coordination to `useSessionController`.
 - Kept editor steps and strokes, comment drafts, and action confirmations in their owning components.
