@@ -2,7 +2,11 @@
 
 ## Open tasks
 
-There are no open tasks from this dependency update.
+- Display click timing history for the complete exercise, not just the selected measure.
+- Add demonstration playback from a selected measure through the end of the exercise.
+- Add a guitar tuner.
+- Add a chord reference.
+- Add a note-finding exercise with selectable guitar tuning, microphone-based pitch recognition, feedback showing the played note after an incorrect answer, and an optional note-location hint. Restrict prompts to notes playable in the selected tuning.
 
 ## Completed in this iteration
 
