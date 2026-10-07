@@ -7,6 +7,7 @@
 - Add a guitar tuner.
 - Add a chord reference.
 - Add a note-finding exercise with selectable guitar tuning, microphone-based pitch recognition, feedback showing the played note after an incorrect answer, and an optional note-location hint. Restrict prompts to notes playable in the selected tuning.
+- Add an analogous chord-finding exercise with microphone-based chord recognition, feedback after an incorrect answer, and an optional fingering hint.
 
 ## Completed in this iteration
 
