@@ -7,7 +7,8 @@
 ## Tailwind CSS
 
 - Use Tailwind utility classes in components for ordinary layout, spacing, typography, colors, and interactive states. Prefer standard utilities and scales; small adjustments to spacing and size are acceptable.
-- Keep global foundations and specialized notation, VexFlow, and rhythmic timeline rules in `src/styles.css`. Preserve specialized notation styles so VexFlow behavior and rhythmic display remain stable.
+- Keep `src/styles.css` for global foundations and visual rules that are difficult to express with Tailwind, especially staff/notation rendering. Use Tailwind classes in components for ordinary layout, spacing, typography, colors, and interactive states; do not add routine UI styling to the global stylesheet.
+- Preserve specialized notation and VexFlow styles so score rendering remains stable.
 - Use Font Awesome for ordinary interface icons when a matching icon exists; avoid hand-drawn inline SVGs for those icons.
 
 ## Triplet notation
@@ -25,6 +26,8 @@
 ## Measure editor
 
 - Derive the number of editor cells from `signatures[signature].slots`, not from the number of beats. The grid must cover a complete measure in 4/4, 3/4, and 6/8, including triplet durations.
+- Keep the selected step kind visibly distinct for notes, triplets, palm mutes, continuation cells, and rests; selected-state styling must not depend on conflicting utility text colors.
+- Align the rhythm timeline's start with the left edge of the first editor cell by sharing the same label column and gap as the step rows.
 - Use a custom time-signature selector with a full-width button trigger and a separate Font Awesome chevron. Its popup options must be easy to select across the full row and support keyboard navigation.
 
 ## Application state and component structure

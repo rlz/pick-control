@@ -76,9 +76,9 @@ export function MeasureEditor({
                 className={`grid gap-2 border-y border-slate-800 bg-slate-950/50 px-4 py-3 ${embedded ? 'border-0 bg-transparent py-4' : ''}`}
             >
                 <section className="flex items-end gap-3" aria-label={t('liveRhythmPreview')}>
-                    <span aria-hidden="true" />
-                    <div className="grid w-full flex-1 gap-1">
-                        <div className="timeline">
+                    <span className="w-20 shrink-0" aria-hidden="true" />
+                    <div className="min-w-0 flex-1">
+                        <div className="timeline mt-5 mb-1.5">
                             <div className="axis">
                                 {Array.from({ length: spec.beats + 1 }, (_, index) => (
                                     <span
@@ -155,7 +155,7 @@ export function MeasureEditor({
                                 const selected = selectedKind === kind
                                 return (
                                     <button
-                                        className={`grid aspect-square min-w-0 flex-1 place-items-center rounded-md border border-slate-600 bg-slate-900 font-mono text-xs font-semibold text-transparent transition hover:-translate-y-px hover:border-indigo-300 ${step % beatSlots === 0 ? 'border-l-slate-500' : ''} ${selected && kind === 'note' ? 'border-indigo-500 bg-indigo-600/20 text-indigo-100' : ''} ${selected && kind === 'mute' ? 'border-slate-400 bg-slate-600/50 text-slate-100' : ''} ${selected && kind === 'triplet' ? 'border-cyan-400 bg-cyan-600/20 text-cyan-200' : ''} ${selected && kind === 'continue' ? 'border-dashed border-slate-500 bg-slate-800 text-slate-400' : ''} ${selected && kind === 'rest' ? 'border-slate-700 bg-slate-900 text-slate-500' : ''}`}
+                                        className={`grid aspect-square min-w-0 flex-1 place-items-center rounded-md border border-slate-600 bg-slate-900 font-mono text-xs font-semibold text-transparent transition hover:-translate-y-px hover:border-indigo-300 ${step % beatSlots === 0 ? 'border-l-slate-500' : ''} ${selected && kind === 'note' ? '!border-indigo-500 !bg-indigo-600/20 !text-indigo-100' : ''} ${selected && kind === 'triplet' ? '!border-cyan-400 !bg-cyan-600/20 !text-cyan-200' : ''} ${selected && kind === 'mute' ? '!border-slate-400 !bg-slate-600/50 !text-slate-100' : ''} ${selected && kind === 'continue' ? '!border-dashed !border-slate-500 !bg-slate-800 !text-slate-400' : ''} ${selected && kind === 'rest' ? '!border-slate-700 !bg-slate-900 !text-slate-500' : ''}`}
                                         key={step}
                                         type="button"
                                         onClick={() => onChange(step, kind)}

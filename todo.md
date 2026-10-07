@@ -44,3 +44,6 @@
 - Changed tempo progression so every step is exactly the configured size; a non-aligned maximum acts as a ceiling and the ramp uses the highest reachable tempo below it.
 - Constrained the playback footer and timing history flex items so the full history can scroll inside its available height instead of being clipped.
 - Removed history scrolling and made the footer grow with its history, preserving a minimum height for the playback controls.
+- Fixed selected-state visibility for note, triplet, palm-mute, continuation, and rest cells in the rhythm editor.
+- Aligned the rhythm timeline's first tick with the left edge of the first editor cell.
+- Moved rhythm-cell selection colors and timeline spacing into Tailwind classes; clarified that `src/styles.css` is reserved for global foundations and complex notation/staff styling.

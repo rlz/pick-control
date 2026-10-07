@@ -38,7 +38,6 @@ body {
 .timeline {
     position: relative;
     height: 30px;
-    margin: 20px 0 6px calc(1.5rem + 0.35rem);
     overflow: visible;
     border-bottom: 1px solid #64748b;
 }

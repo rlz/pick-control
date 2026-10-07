@@ -60,7 +60,7 @@ export function TimingDetail({
                 </button>
             </div>
             <div className="min-w-28 flex-1 pb-4 sm:min-w-35">
-                <div className={`timeline ${showRunBpm ? 'with-tempo' : ''}`}>
+                <div className={`timeline mt-5 mb-1.5 ${showRunBpm ? 'with-tempo' : ''}`}>
                     <div className="axis">
                         {Array.from({ length: beats + 1 }, (_, index) => (
                             <span
