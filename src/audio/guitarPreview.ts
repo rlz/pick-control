@@ -1,40 +1,29 @@
-import type { Player } from 'soundfont-player'
+import normalSampleUrl from './normal-guitar.mp3'
+import palmMutedSampleUrl from './palm-muted-guitar.mp3'
 
 type PreviewNote = { measure: number; position: number; isRest?: boolean; palmMuted?: boolean }
 
 let context: AudioContext | null = null
-let guitar: Promise<Player> | null = null
-let input: AudioNode | null = null
+let samples: Promise<{ normal: AudioBuffer; palmMuted: AudioBuffer }> | null = null
 
-function getInput(audioContext: AudioContext) {
-    if (input) return input
-    const cabinet = audioContext.createBiquadFilter()
-    cabinet.type = 'lowpass'
-    cabinet.frequency.value = 4600
-    cabinet.Q.value = 0.7
-    const compressor = audioContext.createDynamicsCompressor()
-    compressor.threshold.value = -24
-    compressor.knee.value = 8
-    compressor.ratio.value = 5
-    compressor.attack.value = 0.003
-    compressor.release.value = 0.09
-    const output = audioContext.createGain()
-    output.gain.value = 0.7
-    cabinet.connect(compressor).connect(output).connect(audioContext.destination)
-    input = cabinet
-    return input
+async function decodeSample(audioContext: AudioContext, url: string) {
+    const response = await fetch(url)
+    if (!response.ok) throw new Error(`Could not load guitar sample (${response.status})`)
+    return audioContext.decodeAudioData(await response.arrayBuffer())
 }
 
-async function getGuitar() {
-    context ??= new AudioContext()
-    if (context.state === 'suspended') await context.resume()
-    guitar ??= import('soundfont-player').then(({ instrument }) =>
-        instrument(context!, 'distortion_guitar', {
-            soundfont: 'FluidR3_GM',
-            destination: getInput(context!),
-        }),
-    )
-    return { context, player: await guitar }
+async function getSamples(audioContext: AudioContext) {
+    samples ??= Promise.all([
+        decodeSample(audioContext, normalSampleUrl),
+        decodeSample(audioContext, palmMutedSampleUrl),
+    ]).then(([normal, palmMuted]) => ({ normal, palmMuted }))
+    try {
+        return await samples
+    } catch (error) {
+        // A transient fetch or decode failure should not poison every later preview.
+        samples = null
+        throw error
+    }
 }
 
 export async function playRhythmPattern(
@@ -45,8 +34,11 @@ export async function playRhythmPattern(
     measureStart = 0,
     measureCount?: number,
 ) {
-    const { context: audioContext, player } = await getGuitar()
-    const scheduledNotes: Player[] = []
+    context ??= new AudioContext()
+    const audioContext = context
+    if (audioContext.state === 'suspended') await audioContext.resume()
+    const { normal, palmMuted } = await getSamples(audioContext)
+    const scheduledNotes = new Set<AudioBufferSourceNode>()
     const beatSeconds = 60 / bpm
     const startAt = audioContext.currentTime + 0.08
     const lastMeasure =
@@ -61,15 +53,19 @@ export async function playRhythmPattern(
                 startAt +
                 (note.measure - measureStart) * beatsPerMeasure * beatSeconds +
                 (note.position / slotsPerMeasure) * beatsPerMeasure * beatSeconds
-            const strings = note.palmMuted ? ['G2', 'D3'] : ['G2', 'D3', 'G3']
-            strings.forEach((pitch, stringIndex) => {
-                scheduledNotes.push(
-                    player.play(pitch, time + stringIndex * 0.007, {
-                        gain: note.palmMuted ? 0.15 : 0.12,
-                        duration: note.palmMuted ? 0.13 : 0.42,
-                    }),
-                )
-            })
+            const isPalmMuted = Boolean(note.palmMuted)
+            const source = audioContext.createBufferSource()
+            const gain = audioContext.createGain()
+            const duration = isPalmMuted ? 0.125 : 0.42
+            source.buffer = isPalmMuted ? palmMuted : normal
+            gain.gain.setValueAtTime(0.55, time)
+            gain.gain.setValueAtTime(0.55, time + duration - 0.025)
+            gain.gain.linearRampToValueAtTime(0.0001, time + duration)
+            source.connect(gain).connect(audioContext.destination)
+            source.addEventListener('ended', () => scheduledNotes.delete(source), { once: true })
+            source.start(time)
+            source.stop(time + duration)
+            scheduledNotes.add(source)
         })
     return {
         startsAt: performance.now() + 80,

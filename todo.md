@@ -11,6 +11,8 @@
 
 ## Completed in this iteration
 
+- Replaced the external distortion-guitar SoundFont preview with two locally bundled recordings for ordinary and palm-muted attacks; compressed the supplied WAVs to mono MP3 (about 34 KB total) and removed `soundfont-player`.
+
 - Updated six direct dependencies and their compatible transitive dependencies in `package-lock.json`; then moved `@types/node` to 26.6.4 at the user's request. Build and lint pass after both updates.
 - Replaced floating `latest` dependency declarations with explicit caret ranges matching the versions in `package-lock.json`.
 

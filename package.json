@@ -22,7 +22,6 @@
         "react": "^19.3.0",
         "react-dom": "^19.3.0",
         "react-i18next": "^17.0.15",
-        "soundfont-player": "^0.12.0",
         "typescript": "^6.0.3",
         "valtio": "^2.3.2",
         "vexflow": "^5.0.0",

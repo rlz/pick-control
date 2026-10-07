@@ -43,6 +43,11 @@
 
 - Do not show a decorative “Input signal” microphone label, explanatory signal-level text, or a separate connected message in the calibration modal. Show microphone access errors while they apply.
 
+## Guitar preview samples
+
+- Guitar rhythm preview uses two locally bundled recordings: one ordinary pick attack and one palm-muted attack. Each exercise note triggers one sample; preview notes do not encode pitch.
+- Keep the compressed mono MP3 samples in the application bundle so preview playback does not depend on an external soundfont host. Decode and cache the samples in Web Audio on first preview; clear a rejected load promise so a later attempt can retry.
+
 ## Tempo program controls
 
 - Present the three tempo programs as a compact, icon-only one-click button group in the tempo panel, with the current choice visibly distinct from hover and each icon explained by a localized accessible label and tooltip.
