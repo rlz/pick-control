@@ -44,6 +44,16 @@ body {
 .timeline.with-tempo {
     margin-left: calc(5rem + 0.35rem);
 }
+.measure-editor-cells {
+    display: grid;
+    grid-template-columns: repeat(var(--mobile-step-columns), minmax(0, 1fr));
+    gap: 0.25rem;
+}
+@media (min-width: 768px) {
+    .measure-editor-cells {
+        display: flex;
+    }
+}
 .axis span {
     position: absolute;
     top: -15px;

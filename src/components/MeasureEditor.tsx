@@ -1,5 +1,6 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faArrowDown, faArrowUp, faPlay, faStop, faXmark } from '@fortawesome/free-solid-svg-icons'
+import type { CSSProperties } from 'react'
 import type { PickStroke, TimeSignature } from '../types'
 import { stepsToNotes, type StepKind } from '../domain/measureSteps'
 import { signatures } from '../domain/exercise'
@@ -43,6 +44,7 @@ export function MeasureEditor({
 }: Props) {
     const { t } = useTranslation()
     const beatSlots = signature === '6/8' ? 6 : 4
+    const mobileColumns = signature === '6/8' ? 6 : 8
     const spec = signatures[signature]
     const previewNotes = stepsToNotes(steps, measure, strokes)
     const timelineStart = 0
@@ -50,7 +52,7 @@ export function MeasureEditor({
 
     const editor = (
         <section
-            className={`w-full overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl ${embedded ? 'border-0 bg-transparent shadow-none' : ''}`}
+            className={`flex h-full w-full flex-col overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl max-sm:h-dvh max-sm:rounded-none sm:h-auto ${embedded ? 'border-0 bg-transparent shadow-none' : ''}`}
             role={embedded ? undefined : 'dialog'}
             aria-modal={embedded ? undefined : true}
             aria-label={
@@ -58,7 +60,7 @@ export function MeasureEditor({
             }
         >
             {!embedded ? (
-                <header className="flex items-center justify-between p-4">
+                <header className="flex shrink-0 items-center justify-between p-4">
                     <h2 className="m-0 font-sans text-sm font-semibold text-slate-200">
                         {t('measureNumber', { number: measure + 1 })}
                     </h2>
@@ -73,10 +75,13 @@ export function MeasureEditor({
                 </header>
             ) : null}
             <div
-                className={`grid gap-2 border-y border-slate-800 bg-slate-950/50 px-4 py-3 ${embedded ? 'border-0 bg-transparent py-4' : ''}`}
+                className={`min-h-0 flex-1 space-y-3 overflow-y-auto border-y border-slate-800 bg-slate-950/50 px-4 py-3 max-sm:h-0 ${embedded ? 'border-0 bg-transparent py-4' : ''}`}
             >
-                <section className="flex items-end gap-3" aria-label={t('liveRhythmPreview')}>
-                    <span className="w-20 shrink-0" aria-hidden="true" />
+                <section
+                    className="flex min-w-0 items-end gap-3"
+                    aria-label={t('liveRhythmPreview')}
+                >
+                    <span className="hidden w-20 shrink-0 md:block" aria-hidden="true" />
                     <div className="min-w-0 flex-1">
                         <div className="timeline mt-5 mb-1.5">
                             <div className="axis">
@@ -115,11 +120,14 @@ export function MeasureEditor({
                         </div>
                     </div>
                 </section>
-                <div className="flex items-center gap-3">
-                    <span className="w-20 shrink-0 text-xs font-medium text-slate-300">
+                <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
+                    <span className="text-xs font-medium text-slate-300 md:w-20 md:shrink-0">
                         {t('stroke')}
                     </span>
-                    <div className="flex min-w-0 flex-1 gap-1">
+                    <div
+                        className="measure-editor-cells min-w-0 flex-1"
+                        style={{ '--mobile-step-columns': mobileColumns } as CSSProperties}
+                    >
                         {steps.map((kind, step) => {
                             const stroke = strokes[step]
                             const playable = kind !== 'rest' && kind !== 'continue'
@@ -146,11 +154,17 @@ export function MeasureEditor({
                     </div>
                 </div>
                 {kinds.map((kind) => (
-                    <div className="flex items-center gap-3" key={kind}>
-                        <span className="w-20 shrink-0 text-xs font-medium text-slate-300">
+                    <div
+                        className="flex flex-col gap-2 md:flex-row md:items-center md:gap-3"
+                        key={kind}
+                    >
+                        <span className="text-xs font-medium text-slate-300 md:w-20 md:shrink-0">
                             {t(labelKeys[kind])}
                         </span>
-                        <div className="flex min-w-0 flex-1 gap-1">
+                        <div
+                            className="measure-editor-cells min-w-0 flex-1"
+                            style={{ '--mobile-step-columns': mobileColumns } as CSSProperties}
+                        >
                             {steps.map((selectedKind, step) => {
                                 const selected = selectedKind === kind
                                 return (
@@ -178,7 +192,7 @@ export function MeasureEditor({
                 ))}
             </div>
             {!embedded ? (
-                <footer className="flex items-center justify-between gap-3 p-4">
+                <footer className="mt-auto flex shrink-0 items-center justify-between gap-3 border-t border-slate-800 bg-slate-900 p-4">
                     <button
                         className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-3 text-sm font-semibold text-slate-200"
                         type="button"
@@ -213,11 +227,14 @@ export function MeasureEditor({
         editor
     ) : (
         <div
-            className="fixed inset-0 z-40 grid place-items-center bg-slate-950/80 p-4 backdrop-blur-sm"
+            className="fixed inset-0 z-40 grid place-items-center bg-slate-950/80 p-0 backdrop-blur-sm sm:p-4"
             role="presentation"
             onMouseDown={onClose}
         >
-            <div className="w-full max-w-4xl" onMouseDown={(event) => event.stopPropagation()}>
+            <div
+                className="h-full w-full max-w-4xl max-sm:h-dvh sm:h-auto"
+                onMouseDown={(event) => event.stopPropagation()}
+            >
                 {editor}
             </div>
         </div>
