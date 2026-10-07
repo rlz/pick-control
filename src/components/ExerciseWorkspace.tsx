@@ -72,96 +72,101 @@ export function ExerciseWorkspace({ notationScroll, ...props }: Props) {
     return (
         <div className="app-body grid min-h-0 overflow-hidden">
             <section
-                className="relative grid min-h-0 min-w-0 overflow-hidden bg-slate-950"
+                className="relative grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden bg-slate-950"
                 onClick={props.onTempoClose}
             >
-                <div className="absolute right-5 top-5 z-20 flex items-center gap-1 md:right-7 md:top-7">
-                    <div className="relative" ref={signatureSelector}>
-                        <button
-                            className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-600 bg-slate-800 px-3 font-mono text-xs font-semibold text-indigo-200 hover:border-indigo-400"
-                            type="button"
-                            onClick={() => setSignatureOpen((open) => !open)}
-                            onKeyDown={(event) => {
-                                if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-                                    event.preventDefault()
-                                    setSignatureOpen(true)
-                                    requestAnimationFrame(() =>
-                                        signatureSelector.current
-                                            ?.querySelector<HTMLButtonElement>(
-                                                `[data-signature="${props.signature}"]`,
-                                            )
-                                            ?.focus(),
-                                    )
-                                }
-                            }}
-                            aria-label={t('changeTimeSignature')}
-                            aria-haspopup="listbox"
-                            aria-expanded={signatureOpen}
-                            title={t('changeTimeSignature')}
+                <div className="z-20 grid gap-2 border-b border-slate-800 bg-slate-950 px-5 py-3 md:px-7 md:py-4">
+                    <div className="flex min-w-0 items-center justify-between gap-3">
+                        <div
+                            className="min-w-0 truncate font-mono text-xs font-semibold uppercase tracking-wider text-slate-500"
+                            aria-label={t('exerciseSource', { source: props.sourceLabel })}
                         >
-                            <span>{props.signature}</span>
-                            <FontAwesomeIcon
-                                icon={faChevronDown}
-                                className="size-2.5 shrink-0"
-                                aria-hidden="true"
-                            />
-                        </button>
-                        {signatureOpen ? (
-                            <div
-                                className="absolute right-0 top-full z-30 mt-1 min-w-full overflow-hidden rounded-md border border-slate-600 bg-slate-800 p-1 shadow-xl"
-                                role="listbox"
-                                aria-label={t('changeTimeSignature')}
-                            >
-                                {(['4/4', '3/4', '6/8'] as const).map((signature, index) => (
-                                    <button
-                                        key={signature}
-                                        className={`block w-full rounded px-2 py-2 text-left font-mono text-xs font-semibold ${signature === props.signature ? 'bg-indigo-600/30 text-indigo-100' : 'text-slate-200 hover:bg-slate-700'}`}
-                                        type="button"
-                                        role="option"
-                                        aria-selected={signature === props.signature}
-                                        data-signature={signature}
-                                        onClick={() => {
-                                            setSignatureOpen(false)
-                                            props.onSignature(signature as TimeSignature)
-                                        }}
-                                        onKeyDown={(event) => moveSignatureFocus(event, index)}
+                            <span className="text-indigo-300">{props.sourceLabel}</span>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-1">
+                            <div className="relative" ref={signatureSelector}>
+                                <button
+                                    className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-600 bg-slate-800 px-3 font-mono text-xs font-semibold text-indigo-200 hover:border-indigo-400"
+                                    type="button"
+                                    onClick={() => setSignatureOpen((open) => !open)}
+                                    onKeyDown={(event) => {
+                                        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                                            event.preventDefault()
+                                            setSignatureOpen(true)
+                                            requestAnimationFrame(() =>
+                                                signatureSelector.current
+                                                    ?.querySelector<HTMLButtonElement>(
+                                                        `[data-signature="${props.signature}"]`,
+                                                    )
+                                                    ?.focus(),
+                                            )
+                                        }
+                                    }}
+                                    aria-label={t('changeTimeSignature')}
+                                    aria-haspopup="listbox"
+                                    aria-expanded={signatureOpen}
+                                    title={t('changeTimeSignature')}
+                                >
+                                    <span>{props.signature}</span>
+                                    <FontAwesomeIcon
+                                        icon={faChevronDown}
+                                        className="size-2.5 shrink-0"
+                                        aria-hidden="true"
+                                    />
+                                </button>
+                                {signatureOpen ? (
+                                    <div
+                                        className="absolute right-0 top-full z-30 mt-1 min-w-full overflow-hidden rounded-md border border-slate-600 bg-slate-800 p-1 shadow-xl"
+                                        role="listbox"
+                                        aria-label={t('changeTimeSignature')}
                                     >
-                                        {signature}
-                                    </button>
-                                ))}
+                                        {(['4/4', '3/4', '6/8'] as const).map(
+                                            (signature, index) => (
+                                                <button
+                                                    key={signature}
+                                                    className={`block w-full rounded px-2 py-2 text-left font-mono text-xs font-semibold ${signature === props.signature ? 'bg-indigo-600/30 text-indigo-100' : 'text-slate-200 hover:bg-slate-700'}`}
+                                                    type="button"
+                                                    role="option"
+                                                    aria-selected={signature === props.signature}
+                                                    data-signature={signature}
+                                                    onClick={() => {
+                                                        setSignatureOpen(false)
+                                                        props.onSignature(
+                                                            signature as TimeSignature,
+                                                        )
+                                                    }}
+                                                    onKeyDown={(event) =>
+                                                        moveSignatureFocus(event, index)
+                                                    }
+                                                >
+                                                    {signature}
+                                                </button>
+                                            ),
+                                        )}
+                                    </div>
+                                ) : null}
                             </div>
-                        ) : null}
+                            <button
+                                className="grid size-10 place-items-center rounded-md border border-slate-600 bg-slate-800 text-indigo-200 transition hover:border-indigo-400 hover:bg-slate-700"
+                                type="button"
+                                onClick={props.onAddMeasure}
+                                aria-label={t('addEmptyMeasure')}
+                                title={t('addEmptyMeasure')}
+                            >
+                                <FontAwesomeIcon icon={faPlus} />
+                            </button>
+                            <button
+                                className="grid size-10 place-items-center rounded-md border border-red-900 bg-slate-800 text-rose-300 transition hover:border-rose-400 hover:bg-rose-950"
+                                type="button"
+                                onClick={props.onClear}
+                                aria-label={t('clearExercise')}
+                                title={t('clearExercise')}
+                            >
+                                <FontAwesomeIcon icon={faTrash} />
+                            </button>
+                        </div>
                     </div>
-                    <button
-                        className="grid size-10 place-items-center rounded-md border border-slate-600 bg-slate-800 text-indigo-200 transition hover:border-indigo-400 hover:bg-slate-700"
-                        type="button"
-                        onClick={props.onAddMeasure}
-                        aria-label={t('addEmptyMeasure')}
-                        title={t('addEmptyMeasure')}
-                    >
-                        <FontAwesomeIcon icon={faPlus} />
-                    </button>
-                    <button
-                        className="grid size-10 place-items-center rounded-md border border-red-900 bg-slate-800 text-rose-300 transition hover:border-rose-400 hover:bg-rose-950"
-                        type="button"
-                        onClick={props.onClear}
-                        aria-label={t('clearExercise')}
-                        title={t('clearExercise')}
-                    >
-                        <FontAwesomeIcon icon={faTrash} />
-                    </button>
-                </div>
-                <div
-                    className="min-h-0 overflow-x-hidden overflow-y-auto p-5 md:p-7"
-                    ref={notationScroll}
-                >
-                    <div
-                        className="mb-3 ml-1 font-mono text-xs font-semibold uppercase tracking-wider text-slate-500"
-                        aria-label={t('exerciseSource', { source: props.sourceLabel })}
-                    >
-                        <span className="text-indigo-300">{props.sourceLabel}</span>
-                    </div>
-                    <div className="mb-4 ml-1 flex min-w-0 items-center gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
                         <ExerciseComment
                             value={props.comment}
                             onInteraction={props.onCommentInteraction}
@@ -177,6 +182,11 @@ export function ExerciseWorkspace({ notationScroll, ...props }: Props) {
                             <FontAwesomeIcon icon={faStar} />
                         </button>
                     </div>
+                </div>
+                <div
+                    className="min-h-0 overflow-x-hidden overflow-y-auto p-5 md:p-7"
+                    ref={notationScroll}
+                >
                     <div className="flex min-w-0 flex-wrap content-start pb-36">
                         {Array.from({ length: props.measures }, (_, index) => (
                             <Measure

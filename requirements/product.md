@@ -24,6 +24,7 @@ A browser-based rhythm trainer for guitar practice. The application generates sh
 - Display exercise notation as an SVG score.
 - On narrow screens, keep the comment action and compact favorite toggle together below the top-right exercise actions. When a measure is selected, show its rhythm timeline across the full playback panel, with measure playback on the lower left and the other playback controls on the lower right.
 - On mobile, make the rhythm editor full-screen, stretch its rhythm scale across the available width, and wrap step and stroke cells into rows of at most two quarter-note beats. Put each row label above its cells.
+- Keep the mobile exercise header in two fixed rows: exercise type with time-signature, add-measure, and clear actions on the first row; comment and favorite actions on the second.
 - When editing a measure, show all rhythmic cells for its time signature, as defined by the signature's slot count.
 - Support PWA installation and offline caching after the first visit.
 - Use English by default and translate the complete interface into ten supported languages. Detect the preferred language from the browser and fall back to English.
