@@ -261,15 +261,14 @@ export function useSessionController({ bpm, measures, signature, tempoCeiling, t
                         return
                     }
                     const detectedTime = detectedAt - startedAt.current - calibrationLatency
-                    // The first audio block can begin a few milliseconds before
-                    // the visual zero after latency correction. Keep that attack
-                    // and pin it to the first beat instead of silently dropping it.
+                    // Keep early attacks before visual zero: clamping them to
+                    // zero makes every early first-beat hit look perfectly timed.
                     if (
                         startedAt.current > 0 &&
                         detectedTime >= -120 &&
                         detectedTime < activeRunMs.current
                     ) {
-                        const hit = { time: Math.max(0, detectedTime), strength }
+                        const hit = { time: detectedTime, strength }
                         appendHit(hit)
                         hitsRef.current = [...hitsRef.current, hit]
                     }

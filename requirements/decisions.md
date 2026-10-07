@@ -28,6 +28,8 @@
 - Derive the number of editor cells from `signatures[signature].slots`, not from the number of beats. The grid must cover a complete measure in 4/4, 3/4, and 6/8, including triplet durations.
 - Keep the selected step kind visibly distinct for notes, triplets, palm mutes, continuation cells, and rests; selected-state styling must not depend on conflicting utility text colors.
 - Align the rhythm timeline's start with the left edge of the first editor cell by sharing the same label column and gap as the step rows.
+- In timing history, give the score timeline the same label-column width and gap as the hit rows so score ticks and recorded-hit markers share the same horizontal scale, with or without BPM labels.
+- Preserve latency-corrected early hit timestamps, including negative times before the first beat; never clamp them to zero, because that makes early first-beat attacks appear perfectly timed.
 - Use a custom time-signature selector with a full-width button trigger and a separate Font Awesome chevron. Its popup options must be easy to select across the full row and support keyboard navigation.
 
 ## Application state and component structure

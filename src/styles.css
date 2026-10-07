@@ -44,6 +44,9 @@ body {
 .timeline.with-tempo {
     margin-left: calc(5rem + 0.35rem);
 }
+.timeline.with-history {
+    margin-left: calc(1.5rem + 0.35rem);
+}
 .measure-editor-cells {
     display: grid;
     grid-template-columns: repeat(var(--mobile-step-columns), minmax(0, 1fr));

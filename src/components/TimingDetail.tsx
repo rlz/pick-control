@@ -47,7 +47,9 @@ export function TimingDetail({
     return (
         <section className="contents md:flex md:w-full md:min-w-0 md:items-center md:gap-3">
             <div className="col-span-2 row-start-1 min-w-0 pb-1 md:order-2 md:flex-1 md:pb-4">
-                <div className={`timeline mt-5 mb-1.5 ${showRunBpm ? 'with-tempo' : ''}`}>
+                <div
+                    className={`timeline mt-5 mb-1.5 ${showRunBpm ? 'with-tempo' : 'with-history'}`}
+                >
                     <div className="axis">
                         {Array.from({ length: beats + 1 }, (_, index) => (
                             <span

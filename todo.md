@@ -53,3 +53,5 @@
 - Made the mobile rhythm editor full-screen, wrapped step and stroke cells at two quarter-note beats per row, moved row labels above the cells, and expanded the preview scale to full width.
 - Grouped the mobile workspace header into an exercise-type/actions row and a comment/favorite row, outside the scrolling score area.
 - Kept playback controls pinned to the right on wide layouts when no measure is selected.
+- Aligned the score timeline with recorded-hit rows in timing history by matching their label gutter and plot width.
+- Fixed first-beat timing markers appearing perfect: preserve early latency-corrected hits before zero instead of clamping their timestamps to zero.
