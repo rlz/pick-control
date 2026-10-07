@@ -55,13 +55,14 @@ export function ExerciseWorkspace({ notationScroll, ...props }: Props) {
     }, [signatureOpen])
 
     function moveSignatureFocus(event: KeyboardEvent<HTMLButtonElement>, index: number) {
-        const options = signatureSelector.current?.querySelectorAll<HTMLButtonElement>(
-            '[role="option"]',
-        )
+        const options =
+            signatureSelector.current?.querySelectorAll<HTMLButtonElement>('[role="option"]')
         if (!options?.length) return
         if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
             event.preventDefault()
-            options[(index + (event.key === 'ArrowDown' ? 1 : options.length - 1)) % options.length].focus()
+            options[
+                (index + (event.key === 'ArrowDown' ? 1 : options.length - 1)) % options.length
+            ].focus()
         } else if (event.key === 'Escape') {
             setSignatureOpen(false)
             signatureSelector.current?.querySelector('button')?.focus()
@@ -86,7 +87,9 @@ export function ExerciseWorkspace({ notationScroll, ...props }: Props) {
                                     setSignatureOpen(true)
                                     requestAnimationFrame(() =>
                                         signatureSelector.current
-                                            ?.querySelector<HTMLButtonElement>(`[data-signature="${props.signature}"]`)
+                                            ?.querySelector<HTMLButtonElement>(
+                                                `[data-signature="${props.signature}"]`,
+                                            )
                                             ?.focus(),
                                     )
                                 }
@@ -97,10 +100,18 @@ export function ExerciseWorkspace({ notationScroll, ...props }: Props) {
                             title={t('changeTimeSignature')}
                         >
                             <span>{props.signature}</span>
-                            <FontAwesomeIcon icon={faChevronDown} className="size-2.5 shrink-0" aria-hidden="true" />
+                            <FontAwesomeIcon
+                                icon={faChevronDown}
+                                className="size-2.5 shrink-0"
+                                aria-hidden="true"
+                            />
                         </button>
                         {signatureOpen ? (
-                            <div className="absolute right-0 top-full z-30 mt-1 min-w-full overflow-hidden rounded-md border border-slate-600 bg-slate-800 p-1 shadow-xl" role="listbox" aria-label={t('changeTimeSignature')}>
+                            <div
+                                className="absolute right-0 top-full z-30 mt-1 min-w-full overflow-hidden rounded-md border border-slate-600 bg-slate-800 p-1 shadow-xl"
+                                role="listbox"
+                                aria-label={t('changeTimeSignature')}
+                            >
                                 {(['4/4', '3/4', '6/8'] as const).map((signature, index) => (
                                     <button
                                         key={signature}
@@ -150,7 +161,7 @@ export function ExerciseWorkspace({ notationScroll, ...props }: Props) {
                     >
                         <span className="text-indigo-300">{props.sourceLabel}</span>
                     </div>
-                    <div className="mb-4 ml-1 flex items-center gap-2 max-sm:flex-col max-sm:items-stretch">
+                    <div className="mb-4 ml-1 flex min-w-0 items-center gap-2">
                         <ExerciseComment
                             value={props.comment}
                             onInteraction={props.onCommentInteraction}
@@ -158,7 +169,7 @@ export function ExerciseWorkspace({ notationScroll, ...props }: Props) {
                         />
                         <button
                             type="button"
-                            className={`whitespace-nowrap rounded-md border px-2 py-2 text-xs font-semibold transition hover:bg-slate-700 ${props.isFavorite ? 'border-amber-400 bg-amber-950 text-amber-300 hover:border-amber-300' : 'border-slate-600 bg-slate-800 text-indigo-200 hover:border-indigo-400'}`}
+                            className={`grid size-9 shrink-0 place-items-center rounded-md border px-2 py-2 text-xs font-semibold transition hover:bg-slate-700 ${props.isFavorite ? 'border-amber-400 bg-amber-950 text-amber-300 hover:border-amber-300' : 'border-slate-600 bg-slate-800 text-indigo-200 hover:border-indigo-400'}`}
                             onClick={props.onFavorite}
                             aria-label={props.favoriteId ? t('removeFavorite') : t('addFavorite')}
                             title={props.favoriteId ? t('removeFavorite') : t('addFavorite')}

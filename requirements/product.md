@@ -22,6 +22,7 @@ A browser-based rhythm trainer for guitar practice. The application generates sh
 - Provide a note-finding exercise: let the user choose a guitar tuning, prompt a note available in that tuning, and use microphone-based pitch detection to identify the played note. Advance to another prompt after a correct answer; after an incorrect answer, show the note that was actually played. Offer an optional hint showing where the prompted note can be played in the selected tuning. Only prompt notes playable in that tuning.
 - Provide a chord-finding exercise analogous to the note-finding exercise: prompt a chord, use microphone-based pitch recognition to identify the played chord, give feedback after an incorrect answer, and offer an optional hint showing how to play the prompted chord.
 - Display exercise notation as an SVG score.
+- On narrow screens, keep the comment action and compact favorite toggle together below the top-right exercise actions. When a measure is selected, show its rhythm timeline across the full playback panel, with measure playback on the lower left and the other playback controls on the lower right.
 - When editing a measure, show all rhythmic cells for its time signature, as defined by the signature's slot count.
 - Support PWA installation and offline caching after the first visit.
 - Use English by default and translate the complete interface into ten supported languages. Detect the preferred language from the browser and fall back to English.

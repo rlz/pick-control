@@ -51,6 +51,7 @@
 - Use sentence case for tempo progression details and show a localized explanation that changes with the selected program.
 - Let the playback footer grow to fit all timing-history rows; keep a minimum height for its controls and let the exercise workspace use the remaining viewport height.
 - Show a timing-history row for every completed exercise repetition, including repetitions with no detected hits.
+- On mobile, use a two-row playback footer for a selected measure: the rhythm and timing history span the full width; measure playback sits at the lower left and exercise controls at the lower right. Keep comment and favorite actions in a compact single row under the exercise action buttons.
 
 ## Preset thumbnails
 

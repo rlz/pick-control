@@ -45,21 +45,8 @@ export function TimingDetail({
     const showRunBpm = new Set(runs.map((run) => run.bpm)).size > 1
 
     return (
-        <section className="flex w-full min-w-0 items-center gap-3">
-            <div className="flex items-center gap-2">
-                <p className="m-0 font-mono text-xs font-medium text-indigo-300">
-                    {String(measure + 1).padStart(2, '0')}
-                </p>
-                <button
-                    className="grid size-10 place-items-center rounded-lg border border-slate-700 bg-slate-800 font-mono text-xs text-slate-200 transition hover:border-indigo-400 hover:text-indigo-200"
-                    onClick={onPreview}
-                    aria-label={isPreviewing ? t('stopMeasurePreview') : t('playMeasure')}
-                    title={isPreviewing ? t('stopMeasurePreview') : t('playMeasure')}
-                >
-                    <FontAwesomeIcon icon={isPreviewing ? faStop : faPlay} />
-                </button>
-            </div>
-            <div className="min-w-28 flex-1 pb-4 sm:min-w-35">
+        <section className="contents md:flex md:w-full md:min-w-0 md:items-center md:gap-3">
+            <div className="col-span-2 row-start-1 min-w-0 pb-1 md:order-2 md:flex-1 md:pb-4">
                 <div className={`timeline mt-5 mb-1.5 ${showRunBpm ? 'with-tempo' : ''}`}>
                     <div className="axis">
                         {Array.from({ length: beats + 1 }, (_, index) => (
@@ -113,14 +100,25 @@ export function TimingDetail({
                                         isOnTime(hit, run.measureMs) ? 'correct' : 'incorrect'
                                     }
                                     key={hitIndex}
-                                    style={{
-                                        left: `${markerPosition(hit, run.measureMs)}%`,
-                                    }}
+                                    style={{ left: `${markerPosition(hit, run.measureMs)}%` }}
                                 />
                             ))}
                         </div>
                     </div>
                 ))}
+            </div>
+            <div className="col-start-1 row-start-2 flex items-center gap-2 md:order-1">
+                <p className="m-0 font-mono text-xs font-medium text-indigo-300">
+                    {String(measure + 1).padStart(2, '0')}
+                </p>
+                <button
+                    className="grid size-10 place-items-center rounded-lg border border-slate-700 bg-slate-800 font-mono text-xs text-slate-200 transition hover:border-indigo-400 hover:text-indigo-200"
+                    onClick={onPreview}
+                    aria-label={isPreviewing ? t('stopMeasurePreview') : t('playMeasure')}
+                    title={isPreviewing ? t('stopMeasurePreview') : t('playMeasure')}
+                >
+                    <FontAwesomeIcon icon={isPreviewing ? faStop : faPlay} />
+                </button>
             </div>
         </section>
     )

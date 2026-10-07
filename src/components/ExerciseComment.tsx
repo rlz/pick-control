@@ -19,7 +19,7 @@ export function ExerciseComment({ value, onSave, onInteraction }: Props) {
             {editing ? (
                 <>
                     <input
-                        className="w-full max-w-lg rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 focus:border-indigo-400 focus:outline-none"
+                        className="w-full min-w-0 max-w-lg rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 focus:border-indigo-400 focus:outline-none"
                         type="text"
                         value={draft}
                         onChange={(event) => setDraft(event.target.value)}

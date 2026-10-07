@@ -47,3 +47,4 @@
 - Fixed selected-state visibility for note, triplet, palm-mute, continuation, and rest cells in the rhythm editor.
 - Aligned the rhythm timeline's first tick with the left edge of the first editor cell.
 - Moved rhythm-cell selection colors and timeline spacing into Tailwind classes; clarified that `src/styles.css` is reserved for global foundations and complex notation/staff styling.
+- Adjusted the mobile exercise comment/favorite actions to stay compact below the top-right actions, and reorganized the selected-measure playback footer so its rhythm history spans the width above the playback buttons.
